@@ -9,7 +9,8 @@ function clamp(n, min, max) {
 }
 
 // Ordered by hue around the color wheel (Brown grouped with Orange as its
-// dark/desaturated cousin, Black as the achromatic outlier at the end).
+// dark/desaturated cousin; Black and White are the achromatic outliers at
+// the end, dark to light).
 const ENEMY_COLORS = [{
   name: "Red",
   hex: "#ef4444"
@@ -40,6 +41,9 @@ const ENEMY_COLORS = [{
 }, {
   name: "Black",
   hex: "#3f3f46"
+}, {
+  name: "White",
+  hex: "#f8fafc"
 }];
 const NPC_COLOR = "#a1a1aa";
 const STATE_KEY = "dndTracker.state.v3";
@@ -152,7 +156,14 @@ function ConditionRow({
   onRemove,
   onToggleConcentration
 }) {
-  const [value, setValue] = useState("");
+  const [value1, setValue1] = useState("");
+  const [value2, setValue2] = useState("");
+  const submit = (val, setVal) => {
+    if (val.trim()) {
+      onAdd(val.trim());
+      setVal("");
+    }
+  };
   return /*#__PURE__*/React.createElement("div", {
     className: "flex flex-wrap items-center gap-1.5 mt-2"
   }, /*#__PURE__*/React.createElement("button", {
@@ -165,14 +176,15 @@ function ConditionRow({
     onClick: () => onRemove(tag),
     className: "hover:text-white"
   }, "✕"))), /*#__PURE__*/React.createElement("input", {
-    value: value,
-    onChange: e => setValue(e.target.value),
-    onKeyDown: e => {
-      if (e.key === "Enter" && value.trim()) {
-        onAdd(value.trim());
-        setValue("");
-      }
-    },
+    value: value1,
+    onChange: e => setValue1(e.target.value),
+    onKeyDown: e => e.key === "Enter" && submit(value1, setValue1),
+    placeholder: "+ condition",
+    className: "text-xs bg-transparent border border-dashed border-neutral-700 rounded-full px-2 py-0.5 w-24 focus:w-32 transition-all outline-none focus:border-neutral-500 text-neutral-300 placeholder:text-neutral-600"
+  }), /*#__PURE__*/React.createElement("input", {
+    value: value2,
+    onChange: e => setValue2(e.target.value),
+    onKeyDown: e => e.key === "Enter" && submit(value2, setValue2),
     placeholder: "+ condition",
     className: "text-xs bg-transparent border border-dashed border-neutral-700 rounded-full px-2 py-0.5 w-24 focus:w-32 transition-all outline-none focus:border-neutral-500 text-neutral-300 placeholder:text-neutral-600"
   }));
@@ -251,6 +263,7 @@ function CombatantCard({
       if (revived) patch._revive = true;
     } else if (isNpc) {
       let status = c.status;
+      let revived = false;
       if (newHp === 0 && c.currentHp > 0) {
         status = "unconscious";
         patch.deathSaves = {
@@ -258,6 +271,7 @@ function CombatantCard({
           fail: 0
         };
       } else if (newHp > 0 && status !== "active") {
+        revived = status === "dead";
         status = "active";
         patch.deathSaves = {
           success: 0,
@@ -265,6 +279,7 @@ function CombatantCard({
         };
       }
       patch.status = status;
+      if (revived) patch._revive = true;
     }
     onUpdate(patch);
   };
@@ -290,11 +305,14 @@ function CombatantCard({
     deathSaves: {
       success: 0,
       fail: 0
-    }
+    },
+    ...(c.status === "dead" ? {
+      _revive: true
+    } : {})
   });
   const isDownGroup = c.status === "unconscious" || c.status === "stable" || c.status === "dead";
   return /*#__PURE__*/React.createElement("div", {
-    className: `rounded-xl border p-3 transition-all ${dead && isEnemy ? "opacity-50 border-neutral-800 bg-neutral-900/40" : isCurrent ? "border-amber-400 bg-amber-950/20 shadow-lg shadow-amber-900/20 ring-1 ring-amber-400/40" : `${style.border} ${style.bg}`}`
+    className: `rounded-xl border p-3 transition-all ${dead ? "opacity-50 border-neutral-800 bg-neutral-900/40" : isCurrent ? "border-amber-400 bg-amber-950/20 shadow-lg shadow-amber-900/20 ring-1 ring-amber-400/40" : `${style.border} ${style.bg}`}`
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-start justify-between gap-2"
   }, /*#__PURE__*/React.createElement("div", {
@@ -311,8 +329,8 @@ function CombatantCard({
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2"
   }, /*#__PURE__*/React.createElement("span", {
-    className: `font-semibold truncate ${dead && isEnemy ? "line-through text-neutral-500" : "text-neutral-100"}`
-  }, c.name), dead && isEnemy && /*#__PURE__*/React.createElement("span", {
+    className: `font-semibold truncate ${dead ? "line-through text-neutral-500" : "text-neutral-100"}`
+  }, c.name), dead && /*#__PURE__*/React.createElement("span", {
     className: "text-neutral-500 shrink-0"
   }, "💀")), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2 mt-0.5"
@@ -407,14 +425,26 @@ function CombatantCard({
     className: "mt-3 w-full flex items-center justify-center gap-1.5 text-sm font-semibold bg-amber-500 hover:bg-amber-400 text-neutral-900 rounded-lg py-1.5 transition-colors"
   }, "End Turn ▸"));
 }
-function SectionHeader({
-  icon,
+function EditorSection({
   title,
-  accentText
+  icon,
+  accent,
+  open,
+  onToggle,
+  children
 }) {
   return /*#__PURE__*/React.createElement("div", {
-    className: `text-sm font-semibold flex items-center gap-1.5 mb-2 ${accentText}`
-  }, icon, " ", title);
+    className: `rounded-lg border ${accent.border} ${accent.bg}`
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onToggle,
+    className: `w-full flex items-center justify-between px-3 py-2 text-sm font-semibold ${accent.text}`
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "flex items-center gap-1.5"
+  }, icon, " ", title), /*#__PURE__*/React.createElement("span", {
+    className: `transition-transform inline-block ${open ? "rotate-180" : ""}`
+  }, "▾")), open && /*#__PURE__*/React.createElement("div", {
+    className: "px-3 pb-3 space-y-1.5"
+  }, children));
 }
 function RoundDivider() {
   return /*#__PURE__*/React.createElement("div", {
@@ -430,6 +460,11 @@ function CombatTracker() {
   const [savedEncounters, setSavedEncounters] = useState(loadJSON(ENCOUNTERS_KEY, {}));
   const [savedParties, setSavedParties] = useState(loadJSON(PARTIES_KEY, {}));
   const [showEditor, setShowEditor] = useState(false);
+  const [showPlayerForm, setShowPlayerForm] = useState(false);
+  const [showNpcForm, setShowNpcForm] = useState(false);
+  const [showEnemyForm, setShowEnemyForm] = useState(false);
+  const [showEncounterForm, setShowEncounterForm] = useState(false);
+  const [showPartyForm, setShowPartyForm] = useState(false);
   const [playerForm, setPlayerForm] = useState({
     name: ""
   });
@@ -647,11 +682,11 @@ function CombatTracker() {
     setTurnsThisRound(0);
   };
   const endTurn = () => {
-    const alive = combatants.filter(c => !(c.type === "enemy" && c.status === "dead"));
+    const alive = combatants.filter(c => c.status !== "dead");
     const aliveCount = alive.length;
     setCombatants(prev => {
-      const aliveNow = prev.filter(c => !(c.type === "enemy" && c.status === "dead"));
-      const deadNow = prev.filter(c => c.type === "enemy" && c.status === "dead");
+      const aliveNow = prev.filter(c => c.status !== "dead");
+      const deadNow = prev.filter(c => c.status === "dead");
       if (aliveNow.length === 0) return prev;
       const [first, ...rest] = aliveNow;
       return [...rest, first, ...deadNow];
@@ -732,8 +767,8 @@ function CombatTracker() {
     });
     if (selectedParty === name) setSelectedParty("");
   };
-  const aliveOrder = combatants.filter(c => !(c.type === "enemy" && c.status === "dead"));
-  const deadEnemies = combatants.filter(c => c.type === "enemy" && c.status === "dead");
+  const aliveOrder = combatants.filter(c => c.status !== "dead");
+  const deadCombatants = combatants.filter(c => c.status === "dead");
   const dividerIndex = inCombat ? clamp(aliveOrder.length - turnsThisRound, 0, aliveOrder.length) : -1;
   return /*#__PURE__*/React.createElement("div", {
     className: "min-h-screen bg-neutral-950 text-neutral-100 p-4 sm:p-6"
@@ -767,17 +802,17 @@ function CombatTracker() {
   }, "🧰 Editor"), /*#__PURE__*/React.createElement("span", {
     className: `transition-transform inline-block ${showEditor ? "rotate-180" : ""}`
   }, "▾")), showEditor && /*#__PURE__*/React.createElement("div", {
-    className: "px-3 pb-3 space-y-3"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "grid sm:grid-cols-2 gap-3"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "rounded-lg border border-sky-900/50 bg-sky-950/10 p-3"
-  }, /*#__PURE__*/React.createElement(SectionHeader, {
-    icon: "🛡️",
+    className: "px-3 pb-3 space-y-2"
+  }, /*#__PURE__*/React.createElement(EditorSection, {
     title: "Add Player",
-    accentText: "text-sky-300"
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "space-y-1.5"
+    icon: "🛡️",
+    accent: {
+      border: "border-sky-900/50",
+      bg: "bg-sky-950/10",
+      text: "text-sky-300"
+    },
+    open: showPlayerForm,
+    onToggle: () => setShowPlayerForm(v => !v)
   }, /*#__PURE__*/React.createElement("input", {
     value: playerForm.name,
     onChange: e => setPlayerForm({
@@ -791,14 +826,16 @@ function CombatTracker() {
   }, "Starts at initiative 10 — edit anytime on the card."), /*#__PURE__*/React.createElement("button", {
     onClick: addPlayer,
     className: "w-full flex items-center justify-center gap-1 text-sm font-medium bg-sky-600 hover:bg-sky-500 rounded py-1.5"
-  }, "+ Add Player"))), /*#__PURE__*/React.createElement("div", {
-    className: "rounded-lg border border-stone-600/50 bg-stone-800/10 p-3"
-  }, /*#__PURE__*/React.createElement(SectionHeader, {
-    icon: "🎭",
+  }, "+ Add Player")), /*#__PURE__*/React.createElement(EditorSection, {
     title: "Add NPC",
-    accentText: "text-stone-300"
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "space-y-1.5"
+    icon: "🎭",
+    accent: {
+      border: "border-stone-600/50",
+      bg: "bg-stone-800/10",
+      text: "text-stone-300"
+    },
+    open: showNpcForm,
+    onToggle: () => setShowNpcForm(v => !v)
   }, /*#__PURE__*/React.createElement("input", {
     value: npcForm.name,
     onChange: e => setNpcForm({
@@ -840,21 +877,23 @@ function CombatTracker() {
   })), /*#__PURE__*/React.createElement("button", {
     onClick: addNpcs,
     className: "w-full flex items-center justify-center gap-1 text-sm font-medium bg-stone-600 hover:bg-stone-500 rounded py-1.5"
-  }, inCombat ? "🎲 Roll & Add" : "+ Add NPC"))), /*#__PURE__*/React.createElement("div", {
-    className: "rounded-lg border border-rose-900/50 bg-rose-950/10 p-3 sm:col-span-2"
-  }, /*#__PURE__*/React.createElement(SectionHeader, {
-    icon: "⚔️",
+  }, inCombat ? "🎲 Roll & Add" : "+ Add NPC")), /*#__PURE__*/React.createElement(EditorSection, {
     title: "Add Enemy",
-    accentText: "text-rose-300"
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "space-y-1.5"
+    icon: "⚔️",
+    accent: {
+      border: "border-rose-900/50",
+      bg: "bg-rose-950/10",
+      text: "text-rose-300"
+    },
+    open: showEnemyForm,
+    onToggle: () => setShowEnemyForm(v => !v)
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex flex-wrap gap-1.5"
   }, ENEMY_COLORS.map(col => /*#__PURE__*/React.createElement("button", {
     key: col.name,
     title: col.name,
     onClick: () => pickColor(col),
-    className: `w-6 h-6 rounded-full border-2 transition-transform hover:scale-110 ${enemyForm.color === col.hex ? "border-white scale-110" : "border-neutral-700"}`,
+    className: `w-6 h-6 rounded-full border-2 transition-transform hover:scale-110 ${enemyForm.color === col.hex ? "border-amber-400 ring-2 ring-amber-400 scale-110" : "border-neutral-700"}`,
     style: {
       backgroundColor: col.hex
     }
@@ -899,24 +938,22 @@ function CombatTracker() {
   })), /*#__PURE__*/React.createElement("button", {
     onClick: addEnemies,
     className: "w-full flex items-center justify-center gap-1 text-sm font-medium bg-rose-600 hover:bg-rose-500 rounded py-1.5"
-  }, inCombat ? "🎲 Roll & Add" : "+ Add Enemy")))), /*#__PURE__*/React.createElement("div", {
-    className: "grid sm:grid-cols-2 gap-3"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "rounded-lg border border-violet-900/50 bg-violet-950/10 p-3"
-  }, /*#__PURE__*/React.createElement(SectionHeader, {
-    icon: "📖",
+  }, inCombat ? "🎲 Roll & Add" : "+ Add Enemy")), /*#__PURE__*/React.createElement(EditorSection, {
     title: "Saved Encounters",
-    accentText: "text-violet-300"
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "space-y-1.5"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-1.5"
+    icon: "📖",
+    accent: {
+      border: "border-violet-900/50",
+      bg: "bg-violet-950/10",
+      text: "text-violet-300"
+    },
+    open: showEncounterForm,
+    onToggle: () => setShowEncounterForm(v => !v)
   }, /*#__PURE__*/React.createElement("input", {
     value: encounterName,
     onChange: e => setEncounterName(e.target.value),
     placeholder: "Name this encounter",
-    className: "flex-1 min-w-0 text-sm bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 outline-none focus:border-violet-500 placeholder:text-neutral-600"
-  })), /*#__PURE__*/React.createElement("button", {
+    className: "w-full text-sm bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 outline-none focus:border-violet-500 placeholder:text-neutral-600"
+  }), /*#__PURE__*/React.createElement("button", {
     onClick: saveEncounter,
     className: "w-full text-sm font-medium bg-violet-700 hover:bg-violet-600 rounded py-1.5"
   }, "Save current enemies"), /*#__PURE__*/React.createElement("div", {
@@ -938,22 +975,22 @@ function CombatTracker() {
     onClick: () => selectedEncounter && deleteEncounter(selectedEncounter),
     disabled: !selectedEncounter,
     className: "text-sm text-neutral-400 hover:text-rose-300 disabled:opacity-40 rounded px-2 py-1.5 shrink-0"
-  }, "✕")))), /*#__PURE__*/React.createElement("div", {
-    className: "rounded-lg border border-teal-900/50 bg-teal-950/10 p-3"
-  }, /*#__PURE__*/React.createElement(SectionHeader, {
-    icon: "🧑‍🤝‍🧑",
+  }, "✕"))), /*#__PURE__*/React.createElement(EditorSection, {
     title: "Saved Parties",
-    accentText: "text-teal-300"
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "space-y-1.5"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-1.5"
+    icon: "🧑‍🤝‍🧑",
+    accent: {
+      border: "border-teal-900/50",
+      bg: "bg-teal-950/10",
+      text: "text-teal-300"
+    },
+    open: showPartyForm,
+    onToggle: () => setShowPartyForm(v => !v)
   }, /*#__PURE__*/React.createElement("input", {
     value: partyName,
     onChange: e => setPartyName(e.target.value),
     placeholder: "Name this party",
-    className: "flex-1 min-w-0 text-sm bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 outline-none focus:border-teal-500 placeholder:text-neutral-600"
-  })), /*#__PURE__*/React.createElement("button", {
+    className: "w-full text-sm bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 outline-none focus:border-teal-500 placeholder:text-neutral-600"
+  }), /*#__PURE__*/React.createElement("button", {
     onClick: saveParty,
     className: "w-full text-sm font-medium bg-teal-700 hover:bg-teal-600 rounded py-1.5"
   }, "Save current players"), /*#__PURE__*/React.createElement("div", {
@@ -975,7 +1012,7 @@ function CombatTracker() {
     onClick: () => selectedParty && deleteParty(selectedParty),
     disabled: !selectedParty,
     className: "text-sm text-neutral-400 hover:text-rose-300 disabled:opacity-40 rounded px-2 py-1.5 shrink-0"
-  }, "✕"))))))), /*#__PURE__*/React.createElement("button", {
+  }, "✕"))))), /*#__PURE__*/React.createElement("button", {
     onClick: inCombat ? endInitiative : rollInitiative,
     className: `w-full mb-5 flex items-center justify-center gap-1.5 text-sm font-bold rounded-lg py-2.5 transition-colors ${inCombat ? "bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700" : "bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-neutral-950"}`
   }, inCombat ? "⏹ End Initiative" : "🎲 Roll Initiative"), combatants.length === 0 ? /*#__PURE__*/React.createElement("div", {
@@ -996,7 +1033,7 @@ function CombatTracker() {
     onRemove: () => removeCombatant(c.id),
     onEndTurn: endTurn,
     onInitChange: val => setInitiative(c.id, val)
-  }))), dividerIndex === aliveOrder.length && aliveOrder.length > 0 && /*#__PURE__*/React.createElement(RoundDivider, null), deadEnemies.map(c => /*#__PURE__*/React.createElement(CombatantCard, {
+  }))), dividerIndex === aliveOrder.length && aliveOrder.length > 0 && /*#__PURE__*/React.createElement(RoundDivider, null), deadCombatants.map(c => /*#__PURE__*/React.createElement(CombatantCard, {
     key: c.id,
     c: c,
     isCurrent: false,

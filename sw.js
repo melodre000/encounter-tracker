@@ -1,4 +1,4 @@
-const CACHE_NAME = "encounter-tracker-v2";
+const CACHE_NAME = "encounter-tracker-v3";
 const ASSETS = [
   "./",
   "./index.html",
