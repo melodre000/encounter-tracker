@@ -1,7 +1,7 @@
 {
-  "name": "Encounter Tracker",
-  "short_name": "Encounter",
-  "description": "D&D combat and initiative tracker",
+  "name": "InitLite",
+  "short_name": "InitLite",
+  "description": "Lightweight D&D combat and initiative tracker",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

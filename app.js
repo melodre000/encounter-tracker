@@ -1,6 +1,7 @@
 const {
   useState,
-  useEffect
+  useEffect,
+  useRef
 } = React;
 const uid = () => Math.random().toString(36).slice(2, 10);
 const roll20 = () => Math.floor(Math.random() * 20) + 1;
@@ -46,6 +47,119 @@ const ENEMY_COLORS = [{
   hex: "#f8fafc"
 }];
 const NPC_COLOR = "#a1a1aa";
+
+// 2014 DMG-style CR -> XP table (verified against DMG p.275), used only for
+// the rough difficulty estimate. Keyed by numeric CR value so both "1/8"
+// and "0.125" style entry resolve to the same lookup.
+const CR_XP = {
+  0: 10,
+  0.125: 25,
+  0.25: 50,
+  0.5: 100,
+  1: 200,
+  2: 450,
+  3: 700,
+  4: 1100,
+  5: 1800,
+  6: 2300,
+  7: 2900,
+  8: 3900,
+  9: 5000,
+  10: 5900,
+  11: 7200,
+  12: 8400,
+  13: 10000,
+  14: 11500,
+  15: 13000,
+  16: 15000,
+  17: 18000,
+  18: 20000,
+  19: 22000,
+  20: 25000,
+  21: 33000,
+  22: 41000,
+  23: 50000,
+  24: 62000,
+  25: 75000,
+  26: 90000,
+  27: 105000,
+  28: 120000,
+  29: 135000,
+  30: 155000
+};
+function parseCR(raw) {
+  if (!raw) return null;
+  const s = String(raw).trim();
+  if (s.includes("/")) {
+    const [n, d] = s.split("/").map(Number);
+    if (!d || isNaN(n)) return null;
+    return n / d;
+  }
+  const v = parseFloat(s);
+  return isNaN(v) ? null : v;
+}
+function crToXP(raw) {
+  const v = parseCR(raw);
+  return v !== null && CR_XP[v] !== undefined ? CR_XP[v] : null;
+}
+
+// Per-character XP thresholds by level: [Easy, Medium, Hard, Deadly].
+const XP_THRESHOLDS = {
+  1: [25, 50, 75, 100],
+  2: [50, 100, 150, 200],
+  3: [75, 150, 225, 400],
+  4: [125, 250, 375, 500],
+  5: [250, 500, 750, 1100],
+  6: [300, 600, 900, 1400],
+  7: [350, 750, 1100, 1700],
+  8: [450, 900, 1400, 2100],
+  9: [550, 1100, 1600, 2400],
+  10: [600, 1200, 1900, 2800],
+  11: [800, 1600, 2400, 3600],
+  12: [1000, 2000, 3000, 4500],
+  13: [1100, 2200, 3400, 5100],
+  14: [1250, 2500, 3800, 5700],
+  15: [1400, 2800, 4300, 6400],
+  16: [1600, 3200, 4800, 7200],
+  17: [2000, 3900, 5900, 8800],
+  18: [2100, 4200, 6300, 9500],
+  19: [2400, 4900, 7300, 10900],
+  20: [2800, 5700, 8500, 12700]
+};
+const MULTIPLIER_ROWS = [1, 1.5, 2, 2.5, 3, 4];
+function multiplierRowIndex(monsterCount) {
+  if (monsterCount <= 1) return 0;
+  if (monsterCount === 2) return 1;
+  if (monsterCount <= 6) return 2;
+  if (monsterCount <= 10) return 3;
+  if (monsterCount <= 14) return 4;
+  return 5;
+}
+function computeDifficulty(enemies, partyLevel, partyCount) {
+  const withCr = enemies.filter(e => crToXP(e.cr) !== null);
+  if (withCr.length === 0 || !partyLevel || partyCount <= 0) return null;
+  const rawXP = withCr.reduce((sum, e) => sum + crToXP(e.cr), 0);
+  let idx = multiplierRowIndex(enemies.length);
+  if (partyCount <= 2) idx = Math.min(idx + 1, MULTIPLIER_ROWS.length - 1);
+  if (partyCount >= 6) idx = Math.max(idx - 1, 0);
+  const multiplier = MULTIPLIER_ROWS[idx];
+  const adjustedXP = Math.round(rawXP * multiplier);
+  const perChar = XP_THRESHOLDS[clamp(partyLevel, 1, 20)];
+  const [easy, medium, hard, deadly] = perChar.map(n => n * partyCount);
+  let band = "Trivial";
+  if (adjustedXP >= deadly) band = "Deadly";else if (adjustedXP >= hard) band = "Hard";else if (adjustedXP >= medium) band = "Medium";else if (adjustedXP >= easy) band = "Easy";
+  return {
+    band,
+    adjustedXP,
+    rawXP,
+    multiplier,
+    easy,
+    medium,
+    hard,
+    deadly,
+    missingCr: enemies.length - withCr.length
+  };
+}
 const STATE_KEY = "dndTracker.state.v3";
 const ENCOUNTERS_KEY = "dndTracker.encounters.v3";
 const PARTIES_KEY = "dndTracker.parties.v3";
@@ -65,7 +179,8 @@ function sortByInitiative(list) {
 const TYPE_ORDER = {
   player: 0,
   npc: 1,
-  enemy: 2
+  enemy: 2,
+  marker: 3
 };
 function setupSort(list) {
   return [...list].sort((a, b) => {
@@ -228,6 +343,12 @@ const TYPE_STYLE = {
     border: "border-rose-900/60",
     bg: "bg-rose-950/10",
     iconBg: "bg-rose-900/40 border-rose-700 text-rose-300"
+  },
+  marker: {
+    icon: "🚩",
+    border: "border-indigo-800/60",
+    bg: "bg-indigo-950/10",
+    iconBg: "bg-indigo-900/40 border-indigo-700 text-indigo-300"
   }
 };
 function CombatantCard({
@@ -237,7 +358,8 @@ function CombatantCard({
   onUpdate,
   onRemove,
   onEndTurn,
-  onInitChange
+  onInitChange,
+  cardRef
 }) {
   const [dmgInput, setDmgInput] = useState("");
   const [healInput, setHealInput] = useState("");
@@ -246,7 +368,8 @@ function CombatantCard({
   const isPlayer = c.type === "player";
   const isEnemy = c.type === "enemy";
   const isNpc = c.type === "npc";
-  const pct = !isPlayer ? clamp(c.currentHp / c.maxHp * 100, 0, 100) : 0;
+  const isMarker = c.type === "marker";
+  const pct = isEnemy || isNpc ? clamp(c.currentHp / c.maxHp * 100, 0, 100) : 0;
   const applyHp = delta => {
     const newHp = clamp(c.currentHp + delta, 0, c.maxHp);
     const patch = {
@@ -311,7 +434,16 @@ function CombatantCard({
     } : {})
   });
   const isDownGroup = c.status === "unconscious" || c.status === "stable" || c.status === "dead";
+  const markDead = () => onUpdate({
+    currentHp: 0,
+    status: "dead",
+    deathSaves: {
+      success: 0,
+      fail: 0
+    }
+  });
   return /*#__PURE__*/React.createElement("div", {
+    ref: cardRef,
     className: `rounded-xl border p-3 transition-all ${dead ? "opacity-50 border-neutral-800 bg-neutral-900/40" : isCurrent ? "border-amber-400 bg-amber-950/20 shadow-lg shadow-amber-900/20 ring-1 ring-amber-400/40" : `${style.border} ${style.bg}`}`
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-start justify-between gap-2"
@@ -341,10 +473,18 @@ function CombatantCard({
     onChange: onInitChange
   }), /*#__PURE__*/React.createElement(StatusPill, {
     status: c.status
-  })))), /*#__PURE__*/React.createElement("button", {
+  })))), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-1 shrink-0"
+  }, (isEnemy || isNpc) && !dead && /*#__PURE__*/React.createElement("button", {
+    onClick: markDead,
+    title: "Mark dead",
+    className: "text-neutral-600 hover:text-rose-400 text-base leading-none"
+  }, "💀"), /*#__PURE__*/React.createElement("button", {
     onClick: onRemove,
-    className: "text-neutral-600 hover:text-neutral-300 shrink-0"
-  }, "✕")), isPlayer && /*#__PURE__*/React.createElement("div", {
+    disabled: inCombat,
+    title: inCombat ? "Can't remove mid-initiative" : "Remove",
+    className: `text-neutral-600 text-base leading-none ${inCombat ? "opacity-30 cursor-not-allowed" : "hover:text-neutral-300"}`
+  }, "✕"))), isPlayer && /*#__PURE__*/React.createElement("div", {
     className: "mt-3"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex rounded-lg border border-neutral-700 overflow-hidden text-xs font-semibold"
@@ -409,7 +549,7 @@ function CombatantCard({
   }, "+"))), isNpc && c.status === "unconscious" && /*#__PURE__*/React.createElement(DeathSaves, {
     combatant: c,
     onUpdate: onUpdate
-  })), /*#__PURE__*/React.createElement(ConditionRow, {
+  })), !isMarker && /*#__PURE__*/React.createElement(ConditionRow, {
     c: c,
     onAdd: tag => onUpdate({
       conditions: [...c.conditions, tag]
@@ -451,6 +591,33 @@ function RoundDivider() {
     className: "h-px my-1 bg-gradient-to-r from-transparent via-amber-500/70 to-transparent"
   });
 }
+function ConfirmModal({
+  message,
+  onCancel,
+  onConfirm
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-30 flex items-center justify-center bg-black/70 p-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-full max-w-sm rounded-xl border border-neutral-700 bg-neutral-900 p-4 shadow-2xl"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 mb-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-7 h-7 rounded-lg bg-gradient-to-br from-amber-500 to-rose-600 flex items-center justify-center text-sm shrink-0"
+  }, "⚔️"), /*#__PURE__*/React.createElement("span", {
+    className: "text-sm font-bold text-neutral-200"
+  }, "InitLite")), /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-neutral-300 mb-4"
+  }, message), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onCancel,
+    className: "flex-1 text-sm font-medium bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-lg py-2"
+  }, "Cancel"), /*#__PURE__*/React.createElement("button", {
+    onClick: onConfirm,
+    className: "flex-1 text-sm font-semibold bg-rose-600 hover:bg-rose-500 text-white rounded-lg py-2"
+  }, "Confirm"))));
+}
 function CombatTracker() {
   const savedState = loadJSON(STATE_KEY, null);
   const [combatants, setCombatants] = useState(savedState?.combatants || []);
@@ -465,6 +632,8 @@ function CombatTracker() {
   const [showEnemyForm, setShowEnemyForm] = useState(false);
   const [showEncounterForm, setShowEncounterForm] = useState(false);
   const [showPartyForm, setShowPartyForm] = useState(false);
+  const [showMarkerForm, setShowMarkerForm] = useState(false);
+  const [showDifficultyPopover, setShowDifficultyPopover] = useState(false);
   const [playerForm, setPlayerForm] = useState({
     name: ""
   });
@@ -473,6 +642,7 @@ function CombatTracker() {
     qty: "1",
     maxHp: "",
     mod: "",
+    cr: "",
     color: null
   });
   const [npcForm, setNpcForm] = useState({
@@ -481,24 +651,57 @@ function CombatTracker() {
     maxHp: "",
     mod: ""
   });
+  const [markerForm, setMarkerForm] = useState({
+    name: "",
+    initiative: "20"
+  });
   const [encounterName, setEncounterName] = useState("");
   const [selectedEncounter, setSelectedEncounter] = useState("");
   const [partyName, setPartyName] = useState("");
   const [selectedParty, setSelectedParty] = useState("");
+  const [partyLevel, setPartyLevel] = useState(savedState?.partyLevel || "");
+  const [confirmDialog, setConfirmDialog] = useState(null);
+  const requestConfirm = (message, onConfirm) => setConfirmDialog({
+    message,
+    onConfirm
+  });
+  const currentCardRef = useRef(null);
+  const [currentCardVisible, setCurrentCardVisible] = useState(true);
   useEffect(() => {
     localStorage.setItem(STATE_KEY, JSON.stringify({
       combatants,
       round,
       turnsThisRound,
-      inCombat
+      inCombat,
+      partyLevel
     }));
-  }, [combatants, round, turnsThisRound, inCombat]);
+  }, [combatants, round, turnsThisRound, inCombat, partyLevel]);
   useEffect(() => {
     localStorage.setItem(ENCOUNTERS_KEY, JSON.stringify(savedEncounters));
   }, [savedEncounters]);
   useEffect(() => {
     localStorage.setItem(PARTIES_KEY, JSON.stringify(savedParties));
   }, [savedParties]);
+  useEffect(() => {
+    if (!inCombat || !currentCardRef.current || typeof IntersectionObserver === "undefined") {
+      setCurrentCardVisible(true);
+      return;
+    }
+    const el = currentCardRef.current;
+    const obs = new IntersectionObserver(([entry]) => setCurrentCardVisible(entry.isIntersecting), {
+      threshold: 0.01
+    });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [inCombat, combatants]);
+  const makeMarker = (name, initiative) => ({
+    id: uid(),
+    type: "marker",
+    name,
+    initiative,
+    conditions: [],
+    concentration: false
+  });
   const makePlayer = name => ({
     id: uid(),
     type: "player",
@@ -520,7 +723,7 @@ function CombatTracker() {
       name: ""
     });
   };
-  const buildEnemies = (name, qty, hp, mod, color) => {
+  const buildEnemies = (name, qty, hp, mod, color, cr) => {
     const list = [];
     for (let i = 0; i < qty; i++) {
       const label = qty > 1 ? `${name} ${i + 1}` : name;
@@ -540,7 +743,8 @@ function CombatTracker() {
           success: 0,
           fail: 0
         },
-        color
+        color,
+        cr: cr || null
       });
     }
     return list;
@@ -584,12 +788,13 @@ function CombatTracker() {
     const mod = parseInt(enemyForm.mod, 10) || 0;
     const qty = clamp(parseInt(enemyForm.qty, 10) || 1, 1, 20);
     if (!enemyForm.name.trim() || isNaN(hp)) return;
-    addToList(buildEnemies(enemyForm.name.trim(), qty, hp, mod, enemyForm.color));
+    addToList(buildEnemies(enemyForm.name.trim(), qty, hp, mod, enemyForm.color, enemyForm.cr.trim()));
     setEnemyForm({
       name: "",
       qty: "1",
       maxHp: "",
       mod: "",
+      cr: "",
       color: null
     });
   };
@@ -604,6 +809,16 @@ function CombatTracker() {
       qty: "1",
       maxHp: "",
       mod: ""
+    });
+  };
+  const addMarker = () => {
+    if (!markerForm.name.trim()) return;
+    const init = parseInt(markerForm.initiative, 10);
+    const c = makeMarker(markerForm.name.trim(), isNaN(init) ? 20 : init);
+    setCombatants(prev => inCombat ? insertSorted(prev, c) : setupSort([...prev, c]));
+    setMarkerForm({
+      name: "",
+      initiative: "20"
     });
   };
   const pickColor = col => setEnemyForm(f => ({
@@ -642,7 +857,11 @@ function CombatTracker() {
     });
   };
   const removeCombatant = id => setCombatants(prev => prev.filter(c => c.id !== id));
-  const clearEnemies = () => setCombatants(prev => prev.filter(c => c.type !== "enemy"));
+  const clearEnemies = () => {
+    requestConfirm("Remove all enemies from the tracker?", () => {
+      setCombatants(prev => prev.filter(c => c.type !== "enemy"));
+    });
+  };
   const rollInitiative = () => {
     setCombatants(prev => {
       const rolled = prev.map(c => {
@@ -701,19 +920,23 @@ function CombatTracker() {
     });
   };
   const resetAll = () => {
-    setCombatants([]);
-    setRound(1);
-    setTurnsThisRound(0);
-    setInCombat(false);
+    requestConfirm("Reset everything — clear all combatants and end the current fight?", () => {
+      setCombatants([]);
+      setRound(1);
+      setTurnsThisRound(0);
+      setInCombat(false);
+    });
   };
   const saveEncounter = () => {
     const name = encounterName.trim();
     if (!name) return;
-    const templates = combatants.filter(c => c.type === "enemy").map(c => ({
+    const templates = combatants.filter(c => c.type === "enemy" || c.type === "npc").map(c => ({
+      type: c.type,
       name: c.name,
       maxHp: c.maxHp,
       initMod: c.initMod || 0,
-      color: c.color || null
+      color: c.color || null,
+      cr: c.cr || null
     }));
     if (templates.length === 0) return;
     setSavedEncounters(prev => ({
@@ -725,18 +948,20 @@ function CombatTracker() {
   const loadEncounter = () => {
     if (!selectedEncounter || !savedEncounters[selectedEncounter]) return;
     const templates = savedEncounters[selectedEncounter];
-    addToList(templates.flatMap(t => buildEnemies(t.name, 1, t.maxHp, t.initMod, t.color)));
+    const items = templates.flatMap(t => t.type === "npc" ? buildNpcs(t.name, 1, t.maxHp, t.initMod) : buildEnemies(t.name, 1, t.maxHp, t.initMod, t.color, t.cr));
+    addToList(items);
   };
   const deleteEncounter = name => {
-    if (!window.confirm(`Delete saved encounter "${name}"? This can't be undone.`)) return;
-    setSavedEncounters(prev => {
-      const next = {
-        ...prev
-      };
-      delete next[name];
-      return next;
+    requestConfirm(`Delete saved encounter "${name}"? This can't be undone.`, () => {
+      setSavedEncounters(prev => {
+        const next = {
+          ...prev
+        };
+        delete next[name];
+        return next;
+      });
+      if (selectedEncounter === name) setSelectedEncounter("");
     });
-    if (selectedEncounter === name) setSelectedEncounter("");
   };
   const saveParty = () => {
     const name = partyName.trim();
@@ -757,19 +982,30 @@ function CombatTracker() {
     addToList(templates.map(t => makePlayer(t.name)));
   };
   const deleteParty = name => {
-    if (!window.confirm(`Delete saved party "${name}"? This can't be undone.`)) return;
-    setSavedParties(prev => {
-      const next = {
-        ...prev
-      };
-      delete next[name];
-      return next;
+    requestConfirm(`Delete saved party "${name}"? This can't be undone.`, () => {
+      setSavedParties(prev => {
+        const next = {
+          ...prev
+        };
+        delete next[name];
+        return next;
+      });
+      if (selectedParty === name) setSelectedParty("");
     });
-    if (selectedParty === name) setSelectedParty("");
   };
   const aliveOrder = combatants.filter(c => c.status !== "dead");
   const deadCombatants = combatants.filter(c => c.status === "dead");
   const dividerIndex = inCombat ? clamp(aliveOrder.length - turnsThisRound, 0, aliveOrder.length) : -1;
+  const partyCount = combatants.filter(c => c.type === "player").length;
+  const parsedLevel = parseInt(partyLevel, 10);
+  const difficulty = computeDifficulty(combatants.filter(c => c.type === "enemy"), parsedLevel, partyCount);
+  const DIFFICULTY_STYLE = {
+    Trivial: "bg-neutral-800 text-neutral-400 border-neutral-600",
+    Easy: "bg-emerald-900/40 text-emerald-300 border-emerald-700",
+    Medium: "bg-amber-900/40 text-amber-300 border-amber-700",
+    Hard: "bg-orange-900/40 text-orange-300 border-orange-700",
+    Deadly: "bg-rose-900/40 text-rose-300 border-rose-700"
+  };
   return /*#__PURE__*/React.createElement("div", {
     className: "min-h-screen bg-neutral-950 text-neutral-100 p-4 sm:p-6"
   }, /*#__PURE__*/React.createElement("div", {
@@ -782,17 +1018,37 @@ function CombatTracker() {
     className: "w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500 to-rose-600 flex items-center justify-center text-lg"
   }, "⚔️"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h1", {
     className: "text-lg font-bold tracking-tight"
-  }, "Encounter Tracker"), /*#__PURE__*/React.createElement("p", {
+  }, "InitLite"), /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-neutral-500"
-  }, inCombat ? `Round ${round} · ` : "Setting up · ", combatants.length, " combatant", combatants.length !== 1 ? "s" : ""))), /*#__PURE__*/React.createElement("div", {
+  }, inCombat ? `Round ${round} · ` : "Setting up · ", combatants.length, " combatant", combatants.length !== 1 ? "s" : "")), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowDifficultyPopover(v => !v),
+    title: "Encounter difficulty",
+    className: `w-8 h-8 rounded-full border flex items-center justify-center text-sm shrink-0 transition-colors ${showDifficultyPopover ? "bg-amber-500 border-amber-400 text-neutral-950" : "bg-neutral-900 border-neutral-800 text-neutral-400 hover:border-neutral-600"}`
+  }, "⚖️")), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: clearEnemies,
-    className: "flex items-center gap-1.5 text-xs text-neutral-400 hover:text-rose-300 border border-neutral-800 hover:border-rose-800 rounded-lg px-2.5 py-1.5"
+    disabled: inCombat,
+    title: inCombat ? "Can't clear mid-initiative" : "",
+    className: `flex items-center gap-1.5 text-xs border rounded-lg px-2.5 py-1.5 ${inCombat ? "text-neutral-600 border-neutral-900 opacity-40 cursor-not-allowed" : "text-neutral-400 hover:text-rose-300 border-neutral-800 hover:border-rose-800"}`
   }, "🗑️ Clear Enemies"), /*#__PURE__*/React.createElement("button", {
     onClick: resetAll,
-    className: "flex items-center gap-1.5 text-xs text-neutral-400 hover:text-neutral-200 border border-neutral-800 hover:border-neutral-600 rounded-lg px-2.5 py-1.5"
-  }, "↺ Reset All"))), /*#__PURE__*/React.createElement("div", {
+    disabled: inCombat,
+    title: inCombat ? "Can't reset mid-initiative" : "",
+    className: `flex items-center gap-1.5 text-xs border rounded-lg px-2.5 py-1.5 ${inCombat ? "text-neutral-600 border-neutral-900 opacity-40 cursor-not-allowed" : "text-neutral-400 hover:text-neutral-200 border-neutral-800 hover:border-neutral-600"}`
+  }, "↺ Reset All"))), showDifficultyPopover && /*#__PURE__*/React.createElement("div", {
+    className: "mb-3 rounded-lg border border-amber-900/50 bg-amber-950/10 p-3 flex items-center gap-3"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-xs text-neutral-400 shrink-0"
+  }, "⚖️ Avg Party Level"), /*#__PURE__*/React.createElement("input", {
+    value: partyLevel,
+    onChange: e => setPartyLevel(e.target.value),
+    placeholder: "e.g. 5",
+    inputMode: "numeric",
+    className: "w-16 text-sm bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 outline-none focus:border-amber-500 placeholder:text-neutral-600"
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "text-xs text-neutral-600 ml-auto"
+  }, "Rough estimate")), /*#__PURE__*/React.createElement("div", {
     className: "rounded-xl border border-neutral-800 bg-neutral-900/40 mb-3"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => setShowEditor(v => !v),
@@ -915,7 +1171,7 @@ function CombatTracker() {
     }),
     placeholder: "Qty",
     inputMode: "numeric",
-    className: "w-1/3 text-sm bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 outline-none focus:border-rose-500 placeholder:text-neutral-600"
+    className: "w-1/2 text-sm bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 outline-none focus:border-rose-500 placeholder:text-neutral-600"
   }), /*#__PURE__*/React.createElement("input", {
     value: enemyForm.maxHp,
     onChange: e => setEnemyForm({
@@ -924,21 +1180,68 @@ function CombatTracker() {
     }),
     placeholder: "HP",
     inputMode: "numeric",
-    className: "w-1/3 text-sm bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 outline-none focus:border-rose-500 placeholder:text-neutral-600"
-  }), /*#__PURE__*/React.createElement("input", {
+    className: "w-1/2 text-sm bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 outline-none focus:border-rose-500 placeholder:text-neutral-600"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-1.5"
+  }, /*#__PURE__*/React.createElement("input", {
     value: enemyForm.mod,
     onChange: e => setEnemyForm({
       ...enemyForm,
       mod: e.target.value
     }),
-    onKeyDown: e => e.key === "Enter" && addEnemies(),
-    placeholder: "+0",
+    placeholder: "+0 (init mod)",
     inputMode: "numeric",
-    className: "w-1/3 text-sm bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 outline-none focus:border-rose-500 placeholder:text-neutral-600"
+    className: "w-1/2 text-sm bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 outline-none focus:border-rose-500 placeholder:text-neutral-600"
+  }), /*#__PURE__*/React.createElement("input", {
+    value: enemyForm.cr,
+    onChange: e => setEnemyForm({
+      ...enemyForm,
+      cr: e.target.value
+    }),
+    onKeyDown: e => e.key === "Enter" && addEnemies(),
+    placeholder: "CR (optional)",
+    inputMode: "decimal",
+    className: "w-1/2 text-sm bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 outline-none focus:border-rose-500 placeholder:text-neutral-600"
   })), /*#__PURE__*/React.createElement("button", {
     onClick: addEnemies,
     className: "w-full flex items-center justify-center gap-1 text-sm font-medium bg-rose-600 hover:bg-rose-500 rounded py-1.5"
   }, inCombat ? "🎲 Roll & Add" : "+ Add Enemy")), /*#__PURE__*/React.createElement(EditorSection, {
+    title: "Add Marker",
+    icon: "🚩",
+    accent: {
+      border: "border-indigo-900/50",
+      bg: "bg-indigo-950/10",
+      text: "text-indigo-300"
+    },
+    open: showMarkerForm,
+    onToggle: () => setShowMarkerForm(v => !v)
+  }, /*#__PURE__*/React.createElement("input", {
+    value: markerForm.name,
+    onChange: e => setMarkerForm({
+      ...markerForm,
+      name: e.target.value
+    }),
+    placeholder: "e.g. Lair Actions",
+    className: "w-full text-sm bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 outline-none focus:border-indigo-500 placeholder:text-neutral-600"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-xs text-neutral-500 shrink-0"
+  }, "Initiative"), /*#__PURE__*/React.createElement("input", {
+    value: markerForm.initiative,
+    onChange: e => setMarkerForm({
+      ...markerForm,
+      initiative: e.target.value
+    }),
+    onKeyDown: e => e.key === "Enter" && addMarker(),
+    inputMode: "numeric",
+    className: "w-16 text-sm bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 outline-none focus:border-indigo-500"
+  }), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-neutral-600"
+  }, "Defaults to 20 — edit anytime on the card.")), /*#__PURE__*/React.createElement("button", {
+    onClick: addMarker,
+    className: "w-full flex items-center justify-center gap-1 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 rounded py-1.5"
+  }, "🚩 Add Marker")), /*#__PURE__*/React.createElement(EditorSection, {
     title: "Saved Encounters",
     icon: "📖",
     accent: {
@@ -956,7 +1259,7 @@ function CombatTracker() {
   }), /*#__PURE__*/React.createElement("button", {
     onClick: saveEncounter,
     className: "w-full text-sm font-medium bg-violet-700 hover:bg-violet-600 rounded py-1.5"
-  }, "Save current enemies"), /*#__PURE__*/React.createElement("div", {
+  }, "Save current enemies & NPCs"), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-1.5"
   }, /*#__PURE__*/React.createElement("select", {
     value: selectedEncounter,
@@ -1012,10 +1315,23 @@ function CombatTracker() {
     onClick: () => selectedParty && deleteParty(selectedParty),
     disabled: !selectedParty,
     className: "text-sm text-neutral-400 hover:text-rose-300 disabled:opacity-40 rounded px-2 py-1.5 shrink-0"
-  }, "✕"))))), /*#__PURE__*/React.createElement("button", {
+  }, "✕"))))), difficulty && /*#__PURE__*/React.createElement("div", {
+    className: `w-full mb-3 flex items-center justify-between text-xs rounded-lg border px-3 py-2 ${DIFFICULTY_STYLE[difficulty.band]}`
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "font-semibold"
+  }, "⚖️ ", difficulty.band, " encounter"), /*#__PURE__*/React.createElement("span", {
+    className: "font-mono opacity-80"
+  }, "~", difficulty.adjustedXP, " adj. XP ", difficulty.missingCr > 0 ? `(${difficulty.missingCr} enemy w/o CR)` : "")), /*#__PURE__*/React.createElement("button", {
     onClick: inCombat ? endInitiative : rollInitiative,
     className: `w-full mb-5 flex items-center justify-center gap-1.5 text-sm font-bold rounded-lg py-2.5 transition-colors ${inCombat ? "bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700" : "bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-neutral-950"}`
-  }, inCombat ? "⏹ End Initiative" : "🎲 Roll Initiative"), combatants.length === 0 ? /*#__PURE__*/React.createElement("div", {
+  }, inCombat ? "⏹ End Initiative" : "🎲 Roll Initiative"), inCombat && !currentCardVisible && aliveOrder[0] && /*#__PURE__*/React.createElement("div", {
+    className: "fixed top-0 left-0 right-0 z-20 bg-amber-500 text-neutral-950 px-4 py-2 flex items-center justify-between shadow-lg"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-sm font-bold truncate"
+  }, "▸ ", aliveOrder[0].name, "'s turn"), /*#__PURE__*/React.createElement("button", {
+    onClick: endTurn,
+    className: "text-xs font-bold bg-neutral-950 text-amber-400 rounded px-3 py-1.5 shrink-0 ml-2"
+  }, "End Turn")), combatants.length === 0 ? /*#__PURE__*/React.createElement("div", {
     className: "text-center py-16 text-neutral-600 border border-dashed border-neutral-800 rounded-xl"
   }, /*#__PURE__*/React.createElement("div", {
     className: "text-2xl mb-2 opacity-50"
@@ -1029,6 +1345,7 @@ function CombatTracker() {
     c: c,
     isCurrent: i === 0,
     inCombat: inCombat,
+    cardRef: i === 0 ? currentCardRef : null,
     onUpdate: patch => updateCombatant(c.id, patch),
     onRemove: () => removeCombatant(c.id),
     onEndTurn: endTurn,
@@ -1042,6 +1359,13 @@ function CombatTracker() {
     onRemove: () => removeCombatant(c.id),
     onEndTurn: endTurn,
     onInitChange: val => setInitiative(c.id, val)
-  })))));
+  })))), confirmDialog && /*#__PURE__*/React.createElement(ConfirmModal, {
+    message: confirmDialog.message,
+    onCancel: () => setConfirmDialog(null),
+    onConfirm: () => {
+      confirmDialog.onConfirm();
+      setConfirmDialog(null);
+    }
+  }));
 }
 ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.createElement(CombatTracker, null));
