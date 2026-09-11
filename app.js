@@ -200,6 +200,42 @@ function insertSorted(list, newC) {
   arr.splice(idx, 0, newC);
   return arr;
 }
+function escapeRegExp(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// Strips a leading color-swatch name (e.g. "Red Skeleton" -> "Skeleton",
+// bare "Red" -> ""). Used both when re-picking a color and when deriving a
+// duplicate's base name.
+function stripLeadingColor(name) {
+  const sorted = [...ENEMY_COLORS].sort((a, b) => b.name.length - a.name.length);
+  for (const col of sorted) {
+    if (name === col.name) return "";
+    if (name.startsWith(col.name + " ")) return name.slice(col.name.length + 1);
+  }
+  return name;
+}
+
+// Turns a stored enemy name like "Red Skeleton" or "Skeleton 1" into just
+// "Skeleton" for the Duplicate button. Leaves fully custom names untouched.
+function deriveDuplicateBaseName(name) {
+  let result = stripLeadingColor(name.trim());
+  const m = result.match(/^(.*)\s\d+$/);
+  if (m) result = m[1];
+  return result;
+}
+
+// Finds the highest "<name> N" suffix already in use among existingNames,
+// so a repeated batch continues counting instead of restarting at 1.
+function nextStartNumber(existingNames, baseName) {
+  let max = 0;
+  const re = new RegExp(`^${escapeRegExp(baseName)} (\\d+)$`);
+  existingNames.forEach(n => {
+    const m = n.match(re);
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  });
+  return max;
+}
 function StatusPill({
   status
 }) {
@@ -309,6 +345,14 @@ function InitiativeEditor({
   onChange
 }) {
   const display = value === null || value === undefined ? "" : value;
+  const handleTyped = raw => {
+    if (raw === "") {
+      onChange(null);
+      return;
+    }
+    const v = parseFloat(raw);
+    onChange(isNaN(v) ? 0 : v);
+  };
   return /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-1"
   }, /*#__PURE__*/React.createElement("button", {
@@ -316,10 +360,11 @@ function InitiativeEditor({
     className: "w-4 h-4 flex items-center justify-center rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-400 text-xs"
   }, "−"), /*#__PURE__*/React.createElement("input", {
     type: "number",
+    step: "0.1",
     value: display,
     placeholder: "—",
-    onChange: e => onChange(e.target.value === "" ? null : parseInt(e.target.value, 10) || 0),
-    className: "w-9 text-sm font-mono font-bold text-center bg-transparent text-neutral-200 outline-none border-b border-transparent focus:border-neutral-500 placeholder:text-neutral-600"
+    onChange: e => handleTyped(e.target.value),
+    className: "w-11 text-sm font-mono font-bold text-center bg-transparent text-neutral-200 outline-none border-b border-transparent focus:border-neutral-500 placeholder:text-neutral-600"
   }), /*#__PURE__*/React.createElement("button", {
     onClick: () => onChange((value ?? 0) + 1),
     className: "w-4 h-4 flex items-center justify-center rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-400 text-xs"
@@ -618,6 +663,38 @@ function ConfirmModal({
     className: "flex-1 text-sm font-semibold bg-rose-600 hover:bg-rose-500 text-white rounded-lg py-2"
   }, "Confirm"))));
 }
+function EndInitiativeModal({
+  onEnd,
+  onReroll,
+  onCancel
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-30 flex items-center justify-center bg-black/70 p-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-full max-w-sm rounded-xl border border-neutral-700 bg-neutral-900 p-4 shadow-2xl"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 mb-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-7 h-7 rounded-lg bg-gradient-to-br from-amber-500 to-rose-600 flex items-center justify-center text-sm shrink-0"
+  }, "⚔️"), /*#__PURE__*/React.createElement("span", {
+    className: "text-sm font-bold text-neutral-200"
+  }, "InitLite")), /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-neutral-300 mb-4"
+  }, "End this fight's initiative, or reroll enemies for a new one?"), /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-col gap-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onEnd,
+    className: "w-full text-sm font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded-lg py-2"
+  }, "⏹ End Initiative"), /*#__PURE__*/React.createElement("button", {
+    onClick: onReroll,
+    className: "w-full text-sm font-semibold bg-amber-600 hover:bg-amber-500 text-neutral-950 rounded-lg py-2"
+  }, "🎲 Re-Roll Initiative"), /*#__PURE__*/React.createElement("button", {
+    onClick: onCancel,
+    className: "w-full text-sm font-medium bg-transparent hover:bg-neutral-800 text-neutral-400 rounded-lg py-2"
+  }, "Cancel")), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-neutral-600 mt-3"
+  }, "Re-Roll keeps player initiatives and rerolls enemies for a fresh round 1.")));
+}
 function CombatTracker() {
   const savedState = loadJSON(STATE_KEY, null);
   const [combatants, setCombatants] = useState(savedState?.combatants || []);
@@ -645,6 +722,7 @@ function CombatTracker() {
     cr: "",
     color: null
   });
+  const [lastAddedEnemy, setLastAddedEnemy] = useState(null);
   const [npcForm, setNpcForm] = useState({
     name: "",
     qty: "1",
@@ -665,8 +743,20 @@ function CombatTracker() {
     message,
     onConfirm
   });
+  const [showEndInitiativeModal, setShowEndInitiativeModal] = useState(false);
   const currentCardRef = useRef(null);
   const [currentCardVisible, setCurrentCardVisible] = useState(true);
+  const [roundFlash, setRoundFlash] = useState(false);
+  const prevRoundRef = useRef(round);
+  useEffect(() => {
+    if (prevRoundRef.current !== round) {
+      setRoundFlash(true);
+      prevRoundRef.current = round;
+      const t = setTimeout(() => setRoundFlash(false), 700);
+      return () => clearTimeout(t);
+    }
+  }, [round]);
+  const [turnHistory, setTurnHistory] = useState([]);
   useEffect(() => {
     localStorage.setItem(STATE_KEY, JSON.stringify({
       combatants,
@@ -723,10 +813,13 @@ function CombatTracker() {
       name: ""
     });
   };
-  const buildEnemies = (name, qty, hp, mod, color, cr) => {
+  const buildEnemies = (name, qty, hp, mod, color, cr, existingNames) => {
+    const names = existingNames || new Set();
     const list = [];
-    for (let i = 0; i < qty; i++) {
-      const label = qty > 1 ? `${name} ${i + 1}` : name;
+    const hasCollision = names.has(name) || nextStartNumber(names, name) > 0;
+    if (qty === 1 && !hasCollision) {
+      const label = name;
+      names.add(label);
       list.push({
         id: uid(),
         type: "enemy",
@@ -746,6 +839,31 @@ function CombatTracker() {
         color,
         cr: cr || null
       });
+    } else {
+      const start = nextStartNumber(names, name) + 1;
+      for (let i = 0; i < qty; i++) {
+        const label = `${name} ${start + i}`;
+        names.add(label);
+        list.push({
+          id: uid(),
+          type: "enemy",
+          name: label,
+          initiative: inCombat ? roll20() + mod : null,
+          autoRolled: inCombat,
+          initMod: mod,
+          maxHp: hp,
+          currentHp: hp,
+          status: "active",
+          conditions: [],
+          concentration: false,
+          deathSaves: {
+            success: 0,
+            fail: 0
+          },
+          color,
+          cr: cr || null
+        });
+      }
     }
     return list;
   };
@@ -788,13 +906,33 @@ function CombatTracker() {
     const mod = parseInt(enemyForm.mod, 10) || 0;
     const qty = clamp(parseInt(enemyForm.qty, 10) || 1, 1, 20);
     if (!enemyForm.name.trim() || isNaN(hp)) return;
-    addToList(buildEnemies(enemyForm.name.trim(), qty, hp, mod, enemyForm.color, enemyForm.cr.trim()));
+    const existingNames = new Set(combatants.filter(c => c.type === "enemy").map(c => c.name));
+    const newEnemies = buildEnemies(enemyForm.name.trim(), qty, hp, mod, enemyForm.color, enemyForm.cr.trim(), existingNames);
+    addToList(newEnemies);
+    const last = newEnemies[newEnemies.length - 1];
+    setLastAddedEnemy({
+      name: last.name,
+      maxHp: last.maxHp,
+      initMod: last.initMod,
+      cr: last.cr
+    });
     setEnemyForm({
       name: "",
       qty: "1",
       maxHp: "",
       mod: "",
       cr: "",
+      color: null
+    });
+  };
+  const duplicateEnemy = () => {
+    if (!lastAddedEnemy) return;
+    setEnemyForm({
+      name: deriveDuplicateBaseName(lastAddedEnemy.name),
+      qty: "1",
+      maxHp: String(lastAddedEnemy.maxHp),
+      mod: String(lastAddedEnemy.initMod || 0),
+      cr: lastAddedEnemy.cr || "",
       color: null
     });
   };
@@ -821,11 +959,17 @@ function CombatTracker() {
       initiative: "20"
     });
   };
-  const pickColor = col => setEnemyForm(f => ({
-    ...f,
-    name: col.name,
-    color: col.hex
-  }));
+  const pickColor = col => {
+    setEnemyForm(f => {
+      const remainder = stripLeadingColor(f.name.trim());
+      const newName = remainder ? `${col.name} ${remainder}` : col.name;
+      return {
+        ...f,
+        name: newName,
+        color: col.hex
+      };
+    });
+  };
   const updateCombatant = (id, patch) => {
     setCombatants(prev => {
       const idx = prev.findIndex(c => c.id === id);
@@ -860,6 +1004,7 @@ function CombatTracker() {
   const clearEnemies = () => {
     requestConfirm("Remove all enemies from the tracker?", () => {
       setCombatants(prev => prev.filter(c => c.type !== "enemy"));
+      setLastAddedEnemy(null);
     });
   };
   const rollInitiative = () => {
@@ -879,6 +1024,7 @@ function CombatTracker() {
     setInCombat(true);
     setRound(1);
     setTurnsThisRound(0);
+    setTurnHistory([]);
   };
   const endInitiative = () => {
     setCombatants(prev => {
@@ -899,10 +1045,35 @@ function CombatTracker() {
     setInCombat(false);
     setRound(1);
     setTurnsThisRound(0);
+    setTurnHistory([]);
+  };
+  const reRollInitiative = () => {
+    setCombatants(prev => {
+      const rerolled = prev.map(c => {
+        if (c.type === "enemy" || c.type === "npc") {
+          return {
+            ...c,
+            initiative: roll20() + (c.initMod || 0),
+            autoRolled: true
+          };
+        }
+        return c;
+      });
+      return sortByInitiative(rerolled);
+    });
+    setRound(1);
+    setTurnsThisRound(0);
+    setTurnHistory([]);
   };
   const endTurn = () => {
     const alive = combatants.filter(c => c.status !== "dead");
+    if (alive.length === 0) return;
     const aliveCount = alive.length;
+    setTurnHistory(h => [...h, {
+      combatants,
+      round,
+      turnsThisRound
+    }].slice(-20));
     setCombatants(prev => {
       const aliveNow = prev.filter(c => c.status !== "dead");
       const deadNow = prev.filter(c => c.status === "dead");
@@ -919,12 +1090,23 @@ function CombatTracker() {
       return next;
     });
   };
+  const undoEndTurn = () => {
+    setTurnHistory(h => {
+      if (h.length === 0) return h;
+      const last = h[h.length - 1];
+      setCombatants(last.combatants);
+      setRound(last.round);
+      setTurnsThisRound(last.turnsThisRound);
+      return h.slice(0, -1);
+    });
+  };
   const resetAll = () => {
     requestConfirm("Reset everything — clear all combatants and end the current fight?", () => {
       setCombatants([]);
       setRound(1);
       setTurnsThisRound(0);
       setInCombat(false);
+      setLastAddedEnemy(null);
     });
   };
   const saveEncounter = () => {
@@ -948,7 +1130,8 @@ function CombatTracker() {
   const loadEncounter = () => {
     if (!selectedEncounter || !savedEncounters[selectedEncounter]) return;
     const templates = savedEncounters[selectedEncounter];
-    const items = templates.flatMap(t => t.type === "npc" ? buildNpcs(t.name, 1, t.maxHp, t.initMod) : buildEnemies(t.name, 1, t.maxHp, t.initMod, t.color, t.cr));
+    const existingNames = new Set(combatants.filter(c => c.type === "enemy").map(c => c.name));
+    const items = templates.flatMap(t => t.type === "npc" ? buildNpcs(t.name, 1, t.maxHp, t.initMod) : buildEnemies(t.name, 1, t.maxHp, t.initMod, t.color, t.cr, existingNames));
     addToList(items);
   };
   const deleteEncounter = name => {
@@ -1011,33 +1194,33 @@ function CombatTracker() {
   }, /*#__PURE__*/React.createElement("div", {
     className: "max-w-2xl mx-auto"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between mb-5"
+    className: "flex items-center justify-between mb-1"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500 to-rose-600 flex items-center justify-center text-lg"
-  }, "⚔️"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h1", {
+    className: "w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500 to-rose-600 flex items-center justify-center text-lg shrink-0"
+  }, "⚔️"), /*#__PURE__*/React.createElement("h1", {
     className: "text-lg font-bold tracking-tight"
-  }, "InitLite"), /*#__PURE__*/React.createElement("p", {
-    className: "text-xs text-neutral-500"
-  }, inCombat ? `Round ${round} · ` : "Setting up · ", combatants.length, " combatant", combatants.length !== 1 ? "s" : "")), /*#__PURE__*/React.createElement("button", {
+  }, "InitLite")), /*#__PURE__*/React.createElement("button", {
     onClick: () => setShowDifficultyPopover(v => !v),
     title: "Encounter difficulty",
     className: `w-8 h-8 rounded-full border flex items-center justify-center text-sm shrink-0 transition-colors ${showDifficultyPopover ? "bg-amber-500 border-amber-400 text-neutral-950" : "bg-neutral-900 border-neutral-800 text-neutral-400 hover:border-neutral-600"}`
-  }, "⚖️")), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2"
+  }, "⚖️"), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-1.5 shrink-0"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: clearEnemies,
     disabled: inCombat,
-    title: inCombat ? "Can't clear mid-initiative" : "",
-    className: `flex items-center gap-1.5 text-xs border rounded-lg px-2.5 py-1.5 ${inCombat ? "text-neutral-600 border-neutral-900 opacity-40 cursor-not-allowed" : "text-neutral-400 hover:text-rose-300 border-neutral-800 hover:border-rose-800"}`
-  }, "🗑️ Clear Enemies"), /*#__PURE__*/React.createElement("button", {
+    title: inCombat ? "Can't clear mid-initiative" : "Clear all enemies",
+    className: `flex items-center gap-1 text-xs border rounded-lg px-2 py-1.5 whitespace-nowrap ${inCombat ? "text-neutral-600 border-neutral-900 opacity-40 cursor-not-allowed" : "text-neutral-400 hover:text-rose-300 border-neutral-800 hover:border-rose-800"}`
+  }, "🗑️ Clear"), /*#__PURE__*/React.createElement("button", {
     onClick: resetAll,
     disabled: inCombat,
-    title: inCombat ? "Can't reset mid-initiative" : "",
-    className: `flex items-center gap-1.5 text-xs border rounded-lg px-2.5 py-1.5 ${inCombat ? "text-neutral-600 border-neutral-900 opacity-40 cursor-not-allowed" : "text-neutral-400 hover:text-neutral-200 border-neutral-800 hover:border-neutral-600"}`
-  }, "↺ Reset All"))), showDifficultyPopover && /*#__PURE__*/React.createElement("div", {
-    className: "mb-3 rounded-lg border border-amber-900/50 bg-amber-950/10 p-3 flex items-center gap-3"
+    title: inCombat ? "Can't reset mid-initiative" : "Reset everything",
+    className: `flex items-center gap-1 text-xs border rounded-lg px-2 py-1.5 whitespace-nowrap ${inCombat ? "text-neutral-600 border-neutral-900 opacity-40 cursor-not-allowed" : "text-neutral-400 hover:text-neutral-200 border-neutral-800 hover:border-neutral-600"}`
+  }, "↺ Reset"))), showDifficultyPopover && /*#__PURE__*/React.createElement("div", {
+    className: "mb-3 rounded-lg border border-amber-900/50 bg-amber-950/10 p-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
   }, /*#__PURE__*/React.createElement("span", {
     className: "text-xs text-neutral-400 shrink-0"
   }, "⚖️ Avg Party Level"), /*#__PURE__*/React.createElement("input", {
@@ -1046,9 +1229,9 @@ function CombatTracker() {
     placeholder: "e.g. 5",
     inputMode: "numeric",
     className: "w-16 text-sm bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 outline-none focus:border-amber-500 placeholder:text-neutral-600"
-  }), /*#__PURE__*/React.createElement("span", {
-    className: "text-xs text-neutral-600 ml-auto"
-  }, "Rough estimate")), /*#__PURE__*/React.createElement("div", {
+  })), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-neutral-600 mt-1.5"
+  }, "Enables approximate encounter difficulty")), /*#__PURE__*/React.createElement("div", {
     className: "rounded-xl border border-neutral-800 bg-neutral-900/40 mb-3"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => setShowEditor(v => !v),
@@ -1133,7 +1316,7 @@ function CombatTracker() {
   })), /*#__PURE__*/React.createElement("button", {
     onClick: addNpcs,
     className: "w-full flex items-center justify-center gap-1 text-sm font-medium bg-stone-600 hover:bg-stone-500 rounded py-1.5"
-  }, inCombat ? "🎲 Roll & Add" : "+ Add NPC")), /*#__PURE__*/React.createElement(EditorSection, {
+  }, "+ Add NPC")), /*#__PURE__*/React.createElement(EditorSection, {
     title: "Add Enemy",
     icon: "⚔️",
     accent: {
@@ -1202,10 +1385,16 @@ function CombatTracker() {
     placeholder: "CR (optional)",
     inputMode: "decimal",
     className: "w-1/2 text-sm bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 outline-none focus:border-rose-500 placeholder:text-neutral-600"
-  })), /*#__PURE__*/React.createElement("button", {
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-1.5"
+  }, /*#__PURE__*/React.createElement("button", {
     onClick: addEnemies,
-    className: "w-full flex items-center justify-center gap-1 text-sm font-medium bg-rose-600 hover:bg-rose-500 rounded py-1.5"
-  }, inCombat ? "🎲 Roll & Add" : "+ Add Enemy")), /*#__PURE__*/React.createElement(EditorSection, {
+    className: "flex-1 flex items-center justify-center gap-1 text-sm font-medium bg-rose-600 hover:bg-rose-500 rounded py-1.5"
+  }, "+ Add Enemy"), lastAddedEnemy && /*#__PURE__*/React.createElement("button", {
+    onClick: duplicateEnemy,
+    title: "Duplicate last enemy",
+    className: "px-3 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-300 border border-neutral-700 text-sm shrink-0"
+  }, "📋"))), /*#__PURE__*/React.createElement(EditorSection, {
     title: "Add Marker",
     icon: "🚩",
     accent: {
@@ -1315,16 +1504,27 @@ function CombatTracker() {
     onClick: () => selectedParty && deleteParty(selectedParty),
     disabled: !selectedParty,
     className: "text-sm text-neutral-400 hover:text-rose-300 disabled:opacity-40 rounded px-2 py-1.5 shrink-0"
-  }, "✕"))))), difficulty && /*#__PURE__*/React.createElement("div", {
+  }, "✕"))))), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-neutral-500 text-center my-3"
+  }, inCombat ? /*#__PURE__*/React.createElement(React.Fragment, null, "Round ", /*#__PURE__*/React.createElement("span", {
+    className: `font-bold transition-colors duration-700 ${roundFlash ? "text-amber-400" : "text-neutral-500"}`
+  }, round), " · ") : "Setting up · ", combatants.length, " combatant", combatants.length !== 1 ? "s" : ""), difficulty && /*#__PURE__*/React.createElement("div", {
     className: `w-full mb-3 flex items-center justify-between text-xs rounded-lg border px-3 py-2 ${DIFFICULTY_STYLE[difficulty.band]}`
   }, /*#__PURE__*/React.createElement("span", {
     className: "font-semibold"
   }, "⚖️ ", difficulty.band, " encounter"), /*#__PURE__*/React.createElement("span", {
     className: "font-mono opacity-80"
-  }, "~", difficulty.adjustedXP, " adj. XP ", difficulty.missingCr > 0 ? `(${difficulty.missingCr} enemy w/o CR)` : "")), /*#__PURE__*/React.createElement("button", {
-    onClick: inCombat ? endInitiative : rollInitiative,
-    className: `w-full mb-5 flex items-center justify-center gap-1.5 text-sm font-bold rounded-lg py-2.5 transition-colors ${inCombat ? "bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700" : "bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-neutral-950"}`
-  }, inCombat ? "⏹ End Initiative" : "🎲 Roll Initiative"), inCombat && !currentCardVisible && aliveOrder[0] && /*#__PURE__*/React.createElement("div", {
+  }, "~", difficulty.adjustedXP, " adj. XP ", difficulty.missingCr > 0 ? `(${difficulty.missingCr} enemy w/o CR)` : "")), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2 mb-5"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: inCombat ? () => setShowEndInitiativeModal(true) : rollInitiative,
+    className: `flex-1 flex items-center justify-center gap-1.5 text-sm font-bold rounded-lg py-2.5 transition-colors ${inCombat ? "bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700" : "bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-neutral-950"}`
+  }, inCombat ? "⏹ End Initiative" : "🎲 Roll Initiative"), inCombat && /*#__PURE__*/React.createElement("button", {
+    onClick: undoEndTurn,
+    disabled: turnHistory.length === 0,
+    title: "Undo last End Turn",
+    className: `px-4 rounded-lg border text-base transition-colors ${turnHistory.length === 0 ? "opacity-30 cursor-not-allowed border-neutral-800 text-neutral-600" : "border-neutral-700 bg-neutral-800 text-neutral-300 hover:border-neutral-500 hover:text-neutral-100"}`
+  }, "↩️")), inCombat && !currentCardVisible && aliveOrder[0] && /*#__PURE__*/React.createElement("div", {
     className: "fixed top-0 left-0 right-0 z-20 bg-amber-500 text-neutral-950 px-4 py-2 flex items-center justify-between shadow-lg"
   }, /*#__PURE__*/React.createElement("span", {
     className: "text-sm font-bold truncate"
@@ -1366,6 +1566,16 @@ function CombatTracker() {
       confirmDialog.onConfirm();
       setConfirmDialog(null);
     }
+  }), showEndInitiativeModal && /*#__PURE__*/React.createElement(EndInitiativeModal, {
+    onEnd: () => {
+      endInitiative();
+      setShowEndInitiativeModal(false);
+    },
+    onReroll: () => {
+      reRollInitiative();
+      setShowEndInitiativeModal(false);
+    },
+    onCancel: () => setShowEndInitiativeModal(false)
   }));
 }
 ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.createElement(CombatTracker, null));
