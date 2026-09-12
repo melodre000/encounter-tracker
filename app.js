@@ -163,6 +163,45 @@ function computeDifficulty(enemies, partyLevel, partyCount) {
 const STATE_KEY = "dndTracker.state.v3";
 const ENCOUNTERS_KEY = "dndTracker.encounters.v3";
 const PARTIES_KEY = "dndTracker.parties.v3";
+const ENEMY_TEMPLATES_KEY = "dndTracker.enemyTemplates.v1";
+const NPC_TEMPLATES_KEY = "dndTracker.npcTemplates.v1";
+function makeDefaultAdvanced() {
+  return {
+    ac: "",
+    size: "",
+    speed: "",
+    abilities: {
+      str: "",
+      dex: "",
+      con: "",
+      int: "",
+      wis: "",
+      cha: ""
+    },
+    skills: "",
+    senses: "",
+    immunities: "",
+    resistances: "",
+    vulnerabilities: "",
+    traits: [{
+      name: "",
+      desc: ""
+    }],
+    actions: [{
+      name: "",
+      desc: ""
+    }]
+  };
+}
+function hasAdvancedInfo(adv) {
+  if (!adv) return false;
+  if (adv.ac || adv.size || adv.speed) return true;
+  if (adv.abilities && Object.values(adv.abilities).some(v => v)) return true;
+  if (adv.skills || adv.senses || adv.immunities || adv.resistances || adv.vulnerabilities) return true;
+  if (adv.traits && adv.traits.some(t => t.name || t.desc)) return true;
+  if (adv.actions && adv.actions.some(a => a.name || a.desc)) return true;
+  return false;
+}
 function loadJSON(key, fallback) {
   try {
     const raw = localStorage.getItem(key);
@@ -396,6 +435,216 @@ const TYPE_STYLE = {
     iconBg: "bg-indigo-900/40 border-indigo-700 text-indigo-300"
   }
 };
+function AdvancedFieldsEditor({
+  value,
+  onChange,
+  accent
+}) {
+  const [open, setOpen] = useState(false);
+  const update = patch => onChange({
+    ...value,
+    ...patch
+  });
+  const updateAbility = (key, val) => onChange({
+    ...value,
+    abilities: {
+      ...value.abilities,
+      [key]: val
+    }
+  });
+  const updateListItem = (field, idx, key, val) => {
+    const list = value[field].map((item, i) => i === idx ? {
+      ...item,
+      [key]: val
+    } : item);
+    onChange({
+      ...value,
+      [field]: list
+    });
+  };
+  const addListItem = field => onChange({
+    ...value,
+    [field]: [...value[field], {
+      name: "",
+      desc: ""
+    }]
+  });
+  const removeListItem = (field, idx) => onChange({
+    ...value,
+    [field]: value[field].filter((_, i) => i !== idx)
+  });
+  const inputCls = "text-sm bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 outline-none placeholder:text-neutral-600";
+  return /*#__PURE__*/React.createElement("div", {
+    className: "border-t border-neutral-800 pt-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setOpen(v => !v),
+    className: `w-full flex items-center justify-between text-xs font-semibold ${accent}`
+  }, /*#__PURE__*/React.createElement("span", null, "⚙️ Advanced"), /*#__PURE__*/React.createElement("span", {
+    className: `transition-transform inline-block ${open ? "rotate-180" : ""}`
+  }, "▾")), open && /*#__PURE__*/React.createElement("div", {
+    className: "mt-2 space-y-2"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-1.5"
+  }, /*#__PURE__*/React.createElement("input", {
+    placeholder: "AC",
+    value: value.ac,
+    onChange: e => update({
+      ac: e.target.value
+    }),
+    inputMode: "numeric",
+    className: `w-1/3 ${inputCls}`
+  }), /*#__PURE__*/React.createElement("input", {
+    placeholder: "Size",
+    value: value.size,
+    onChange: e => update({
+      size: e.target.value
+    }),
+    className: `w-1/3 ${inputCls}`
+  }), /*#__PURE__*/React.createElement("input", {
+    placeholder: "Speed",
+    value: value.speed,
+    onChange: e => update({
+      speed: e.target.value
+    }),
+    inputMode: "numeric",
+    className: `w-1/3 ${inputCls}`
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-neutral-600 mb-1"
+  }, "Ability score modifiers"), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-6 gap-1"
+  }, ["str", "dex", "con", "int", "wis", "cha"].map(k => /*#__PURE__*/React.createElement("input", {
+    key: k,
+    placeholder: k.toUpperCase(),
+    value: value.abilities[k],
+    onChange: e => updateAbility(k, e.target.value),
+    inputMode: "numeric",
+    className: `text-center px-1 ${inputCls}`
+  })))), /*#__PURE__*/React.createElement("input", {
+    placeholder: "Skills (e.g. Perception +3)",
+    value: value.skills,
+    onChange: e => update({
+      skills: e.target.value
+    }),
+    className: `w-full ${inputCls}`
+  }), /*#__PURE__*/React.createElement("input", {
+    placeholder: "Senses (e.g. passive Perception 13)",
+    value: value.senses,
+    onChange: e => update({
+      senses: e.target.value
+    }),
+    className: `w-full ${inputCls}`
+  }), /*#__PURE__*/React.createElement("input", {
+    placeholder: "Immunities",
+    value: value.immunities,
+    onChange: e => update({
+      immunities: e.target.value
+    }),
+    className: `w-full ${inputCls}`
+  }), /*#__PURE__*/React.createElement("input", {
+    placeholder: "Resistances",
+    value: value.resistances,
+    onChange: e => update({
+      resistances: e.target.value
+    }),
+    className: `w-full ${inputCls}`
+  }), /*#__PURE__*/React.createElement("input", {
+    placeholder: "Vulnerabilities",
+    value: value.vulnerabilities,
+    onChange: e => update({
+      vulnerabilities: e.target.value
+    }),
+    className: `w-full ${inputCls}`
+  }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-neutral-600 mb-1"
+  }, "Traits"), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-1.5"
+  }, value.traits.map((t, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    className: "flex gap-1"
+  }, /*#__PURE__*/React.createElement("input", {
+    placeholder: "Name",
+    value: t.name,
+    onChange: e => updateListItem("traits", i, "name", e.target.value),
+    className: `w-1/3 ${inputCls}`
+  }), /*#__PURE__*/React.createElement("input", {
+    placeholder: "Description",
+    value: t.desc,
+    onChange: e => updateListItem("traits", i, "desc", e.target.value),
+    className: `flex-1 ${inputCls}`
+  }), value.traits.length > 1 && /*#__PURE__*/React.createElement("button", {
+    onClick: () => removeListItem("traits", i),
+    className: "text-neutral-600 hover:text-rose-300 px-1"
+  }, "✕")))), /*#__PURE__*/React.createElement("button", {
+    onClick: () => addListItem("traits"),
+    className: "text-xs text-neutral-400 hover:text-neutral-200 mt-1"
+  }, "+ Add Trait")), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-neutral-600 mb-1"
+  }, "Actions"), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-1.5"
+  }, value.actions.map((a, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    className: "flex gap-1"
+  }, /*#__PURE__*/React.createElement("input", {
+    placeholder: "Name",
+    value: a.name,
+    onChange: e => updateListItem("actions", i, "name", e.target.value),
+    className: `w-1/3 ${inputCls}`
+  }), /*#__PURE__*/React.createElement("input", {
+    placeholder: "Description",
+    value: a.desc,
+    onChange: e => updateListItem("actions", i, "desc", e.target.value),
+    className: `flex-1 ${inputCls}`
+  }), value.actions.length > 1 && /*#__PURE__*/React.createElement("button", {
+    onClick: () => removeListItem("actions", i),
+    className: "text-neutral-600 hover:text-rose-300 px-1"
+  }, "✕")))), /*#__PURE__*/React.createElement("button", {
+    onClick: () => addListItem("actions"),
+    className: "text-xs text-neutral-400 hover:text-neutral-200 mt-1"
+  }, "+ Add Action"))));
+}
+function StatBlockPanel({
+  advanced: a
+}) {
+  const abilityRow = Object.values(a.abilities).some(v => v);
+  const infoLines = [["Armor Class", a.ac], ["Size", a.size], ["Speed", a.speed], ["Skills", a.skills], ["Senses", a.senses], ["Immunities", a.immunities], ["Resistances", a.resistances], ["Vulnerabilities", a.vulnerabilities]].filter(([, v]) => v);
+  const traits = a.traits.filter(t => t.name || t.desc);
+  const actions = a.actions.filter(t => t.name || t.desc);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "mt-2 rounded-lg border border-amber-900/40 bg-amber-950/10 p-3 font-serif"
+  }, infoLines.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-neutral-300 space-y-0.5 mb-2"
+  }, infoLines.map(([label, val]) => /*#__PURE__*/React.createElement("div", {
+    key: label
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "font-semibold text-amber-300"
+  }, label), " ", val))), abilityRow && /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-6 gap-1 text-center text-xs border-y border-amber-800/40 py-2 mb-2"
+  }, ["str", "dex", "con", "int", "wis", "cha"].map(k => /*#__PURE__*/React.createElement("div", {
+    key: k
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "font-semibold text-amber-300"
+  }, k.toUpperCase()), /*#__PURE__*/React.createElement("div", {
+    className: "text-neutral-300"
+  }, a.abilities[k] || "—")))), traits.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "space-y-1.5 mb-2 border-t border-amber-800/40 pt-2"
+  }, traits.map((t, i) => /*#__PURE__*/React.createElement("p", {
+    key: i,
+    className: "text-xs text-neutral-300"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "italic font-bold text-amber-200"
+  }, t.name, "."), " ", t.desc))), actions.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "border-t border-amber-800/40 pt-2"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-center text-sm font-bold text-amber-300 tracking-wide mb-1"
+  }, "Actions"), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-1.5"
+  }, actions.map((act, i) => /*#__PURE__*/React.createElement("p", {
+    key: i,
+    className: "text-xs text-neutral-300"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "italic font-bold text-amber-200"
+  }, act.name, "."), " ", act.desc)))));
+}
 function CombatantCard({
   c,
   isCurrent,
@@ -404,8 +653,10 @@ function CombatantCard({
   onRemove,
   onEndTurn,
   onInitChange,
-  cardRef
+  cardRef,
+  onSetClipboard
 }) {
+  const [statBlockOpen, setStatBlockOpen] = useState(false);
   const [dmgInput, setDmgInput] = useState("");
   const [healInput, setHealInput] = useState("");
   const style = TYPE_STYLE[c.type];
@@ -524,7 +775,11 @@ function CombatantCard({
     onClick: markDead,
     title: "Mark dead",
     className: "text-neutral-600 hover:text-rose-400 text-base leading-none"
-  }, "💀"), /*#__PURE__*/React.createElement("button", {
+  }, "💀"), isEnemy && !inCombat && /*#__PURE__*/React.createElement("button", {
+    onClick: onSetClipboard,
+    title: "Set as Duplicate source",
+    className: "text-neutral-600 hover:text-sky-300 text-sm leading-none"
+  }, "📋"), /*#__PURE__*/React.createElement("button", {
     onClick: onRemove,
     disabled: inCombat,
     title: inCombat ? "Can't remove mid-initiative" : "Remove",
@@ -606,9 +861,17 @@ function CombatantCard({
       concentration: !c.concentration
     })
   }), inCombat && isCurrent && /*#__PURE__*/React.createElement("button", {
-    onClick: onEndTurn,
+    onClick: () => {
+      onEndTurn();
+      setStatBlockOpen(false);
+    },
     className: "mt-3 w-full flex items-center justify-center gap-1.5 text-sm font-semibold bg-amber-500 hover:bg-amber-400 text-neutral-900 rounded-lg py-1.5 transition-colors"
-  }, "End Turn ▸"));
+  }, "End Turn ▸"), (isEnemy || isNpc) && hasAdvancedInfo(c.advanced) && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setStatBlockOpen(v => !v),
+    className: "mt-1.5 w-full text-center text-xs text-neutral-500 hover:text-neutral-300"
+  }, statBlockOpen ? "▲ Collapse stat block" : "▼ Expand stat block"), statBlockOpen && /*#__PURE__*/React.createElement(StatBlockPanel, {
+    advanced: c.advanced
+  })));
 }
 function EditorSection({
   title,
@@ -709,6 +972,7 @@ function CombatTracker() {
   const [showEnemyForm, setShowEnemyForm] = useState(false);
   const [showEncounterForm, setShowEncounterForm] = useState(false);
   const [showPartyForm, setShowPartyForm] = useState(false);
+  const [showBackupForm, setShowBackupForm] = useState(false);
   const [showMarkerForm, setShowMarkerForm] = useState(false);
   const [showDifficultyPopover, setShowDifficultyPopover] = useState(false);
   const [playerForm, setPlayerForm] = useState({
@@ -720,15 +984,23 @@ function CombatTracker() {
     maxHp: "",
     mod: "",
     cr: "",
-    color: null
+    color: null,
+    advanced: makeDefaultAdvanced()
   });
-  const [lastAddedEnemy, setLastAddedEnemy] = useState(null);
+  const [enemyClipboard, setEnemyClipboard] = useState(null);
   const [npcForm, setNpcForm] = useState({
     name: "",
     qty: "1",
     maxHp: "",
-    mod: ""
+    mod: "",
+    advanced: makeDefaultAdvanced()
   });
+  const [savedEnemyTemplates, setSavedEnemyTemplates] = useState(loadJSON(ENEMY_TEMPLATES_KEY, {}));
+  const [showEnemyLibrary, setShowEnemyLibrary] = useState(false);
+  const [enemyLibrarySaveName, setEnemyLibrarySaveName] = useState("");
+  const [savedNpcTemplates, setSavedNpcTemplates] = useState(loadJSON(NPC_TEMPLATES_KEY, {}));
+  const [showNpcLibrary, setShowNpcLibrary] = useState(false);
+  const [npcLibrarySaveName, setNpcLibrarySaveName] = useState("");
   const [markerForm, setMarkerForm] = useState({
     name: "",
     initiative: "20"
@@ -745,6 +1017,8 @@ function CombatTracker() {
   });
   const [showEndInitiativeModal, setShowEndInitiativeModal] = useState(false);
   const currentCardRef = useRef(null);
+  const importInputRef = useRef(null);
+  const [importError, setImportError] = useState("");
   const [currentCardVisible, setCurrentCardVisible] = useState(true);
   const [roundFlash, setRoundFlash] = useState(false);
   const prevRoundRef = useRef(round);
@@ -772,6 +1046,12 @@ function CombatTracker() {
   useEffect(() => {
     localStorage.setItem(PARTIES_KEY, JSON.stringify(savedParties));
   }, [savedParties]);
+  useEffect(() => {
+    localStorage.setItem(ENEMY_TEMPLATES_KEY, JSON.stringify(savedEnemyTemplates));
+  }, [savedEnemyTemplates]);
+  useEffect(() => {
+    localStorage.setItem(NPC_TEMPLATES_KEY, JSON.stringify(savedNpcTemplates));
+  }, [savedNpcTemplates]);
   useEffect(() => {
     if (!inCombat || !currentCardRef.current || typeof IntersectionObserver === "undefined") {
       setCurrentCardVisible(true);
@@ -813,7 +1093,7 @@ function CombatTracker() {
       name: ""
     });
   };
-  const buildEnemies = (name, qty, hp, mod, color, cr, existingNames) => {
+  const buildEnemies = (name, qty, hp, mod, color, cr, existingNames, advanced) => {
     const names = existingNames || new Set();
     const list = [];
     const hasCollision = names.has(name) || nextStartNumber(names, name) > 0;
@@ -837,7 +1117,8 @@ function CombatTracker() {
           fail: 0
         },
         color,
-        cr: cr || null
+        cr: cr || null,
+        advanced: advanced || null
       });
     } else {
       const start = nextStartNumber(names, name) + 1;
@@ -861,13 +1142,14 @@ function CombatTracker() {
             fail: 0
           },
           color,
-          cr: cr || null
+          cr: cr || null,
+          advanced: advanced || null
         });
       }
     }
     return list;
   };
-  const buildNpcs = (name, qty, hp, mod) => {
+  const buildNpcs = (name, qty, hp, mod, advanced) => {
     const list = [];
     for (let i = 0; i < qty; i++) {
       const label = qty > 1 ? `${name} ${i + 1}` : name;
@@ -887,7 +1169,8 @@ function CombatTracker() {
           success: 0,
           fail: 0
         },
-        color: NPC_COLOR
+        color: NPC_COLOR,
+        advanced: advanced || null
       });
     }
     return list;
@@ -907,33 +1190,41 @@ function CombatTracker() {
     const qty = clamp(parseInt(enemyForm.qty, 10) || 1, 1, 20);
     if (!enemyForm.name.trim() || isNaN(hp)) return;
     const existingNames = new Set(combatants.filter(c => c.type === "enemy").map(c => c.name));
-    const newEnemies = buildEnemies(enemyForm.name.trim(), qty, hp, mod, enemyForm.color, enemyForm.cr.trim(), existingNames);
+    const newEnemies = buildEnemies(enemyForm.name.trim(), qty, hp, mod, enemyForm.color, enemyForm.cr.trim(), existingNames, enemyForm.advanced);
     addToList(newEnemies);
-    const last = newEnemies[newEnemies.length - 1];
-    setLastAddedEnemy({
-      name: last.name,
-      maxHp: last.maxHp,
-      initMod: last.initMod,
-      cr: last.cr
-    });
     setEnemyForm({
       name: "",
       qty: "1",
       maxHp: "",
       mod: "",
       cr: "",
-      color: null
+      color: null,
+      advanced: makeDefaultAdvanced()
+    });
+  };
+
+  // Duplicate now works off an explicitly-chosen clipboard (set via the 📋
+  // button on an enemy card) rather than auto-tracking the last add.
+  const setClipboardFromCard = c => {
+    setEnemyClipboard({
+      sourceId: c.id,
+      name: c.name,
+      maxHp: c.maxHp,
+      initMod: c.initMod,
+      cr: c.cr,
+      advanced: c.advanced
     });
   };
   const duplicateEnemy = () => {
-    if (!lastAddedEnemy) return;
+    if (!enemyClipboard) return;
     setEnemyForm({
-      name: deriveDuplicateBaseName(lastAddedEnemy.name),
+      name: deriveDuplicateBaseName(enemyClipboard.name),
       qty: "1",
-      maxHp: String(lastAddedEnemy.maxHp),
-      mod: String(lastAddedEnemy.initMod || 0),
-      cr: lastAddedEnemy.cr || "",
-      color: null
+      maxHp: String(enemyClipboard.maxHp),
+      mod: String(enemyClipboard.initMod || 0),
+      cr: enemyClipboard.cr || "",
+      color: null,
+      advanced: enemyClipboard.advanced || makeDefaultAdvanced()
     });
   };
   const addNpcs = () => {
@@ -941,12 +1232,13 @@ function CombatTracker() {
     const mod = parseInt(npcForm.mod, 10) || 0;
     const qty = clamp(parseInt(npcForm.qty, 10) || 1, 1, 20);
     if (!npcForm.name.trim() || isNaN(hp)) return;
-    addToList(buildNpcs(npcForm.name.trim(), qty, hp, mod));
+    addToList(buildNpcs(npcForm.name.trim(), qty, hp, mod, npcForm.advanced));
     setNpcForm({
       name: "",
       qty: "1",
       maxHp: "",
-      mod: ""
+      mod: "",
+      advanced: makeDefaultAdvanced()
     });
   };
   const addMarker = () => {
@@ -1004,7 +1296,7 @@ function CombatTracker() {
   const clearEnemies = () => {
     requestConfirm("Remove all enemies from the tracker?", () => {
       setCombatants(prev => prev.filter(c => c.type !== "enemy"));
-      setLastAddedEnemy(null);
+      // enemyClipboard intentionally survives Clear Enemies — it only resets on Reset All.
     });
   };
   const rollInitiative = () => {
@@ -1106,7 +1398,7 @@ function CombatTracker() {
       setRound(1);
       setTurnsThisRound(0);
       setInCombat(false);
-      setLastAddedEnemy(null);
+      setEnemyClipboard(null);
     });
   };
   const saveEncounter = () => {
@@ -1118,7 +1410,8 @@ function CombatTracker() {
       maxHp: c.maxHp,
       initMod: c.initMod || 0,
       color: c.color || null,
-      cr: c.cr || null
+      cr: c.cr || null,
+      advanced: c.advanced || null
     }));
     if (templates.length === 0) return;
     setSavedEncounters(prev => ({
@@ -1131,8 +1424,144 @@ function CombatTracker() {
     if (!selectedEncounter || !savedEncounters[selectedEncounter]) return;
     const templates = savedEncounters[selectedEncounter];
     const existingNames = new Set(combatants.filter(c => c.type === "enemy").map(c => c.name));
-    const items = templates.flatMap(t => t.type === "npc" ? buildNpcs(t.name, 1, t.maxHp, t.initMod) : buildEnemies(t.name, 1, t.maxHp, t.initMod, t.color, t.cr, existingNames));
+    const items = templates.flatMap(t => t.type === "npc" ? buildNpcs(t.name, 1, t.maxHp, t.initMod, t.advanced) : buildEnemies(t.name, 1, t.maxHp, t.initMod, t.color, t.cr, existingNames, t.advanced));
     addToList(items);
+  };
+  const saveEnemyTemplate = () => {
+    const name = enemyLibrarySaveName.trim();
+    if (!name) return;
+    setSavedEnemyTemplates(prev => ({
+      ...prev,
+      [name]: {
+        maxHp: enemyForm.maxHp,
+        mod: enemyForm.mod,
+        cr: enemyForm.cr,
+        color: enemyForm.color,
+        advanced: enemyForm.advanced
+      }
+    }));
+    setEnemyLibrarySaveName("");
+  };
+  const loadEnemyTemplate = name => {
+    const t = savedEnemyTemplates[name];
+    if (!t) return;
+    setEnemyForm(f => ({
+      ...f,
+      name,
+      maxHp: t.maxHp,
+      mod: t.mod,
+      cr: t.cr,
+      color: t.color,
+      advanced: t.advanced || makeDefaultAdvanced()
+    }));
+    setShowEnemyLibrary(false);
+  };
+  const deleteEnemyTemplate = name => {
+    requestConfirm(`Delete saved enemy "${name}"? This can't be undone.`, () => {
+      setSavedEnemyTemplates(prev => {
+        const next = {
+          ...prev
+        };
+        delete next[name];
+        return next;
+      });
+    });
+  };
+  const saveNpcTemplate = () => {
+    const name = npcLibrarySaveName.trim();
+    if (!name) return;
+    setSavedNpcTemplates(prev => ({
+      ...prev,
+      [name]: {
+        maxHp: npcForm.maxHp,
+        mod: npcForm.mod,
+        advanced: npcForm.advanced
+      }
+    }));
+    setNpcLibrarySaveName("");
+  };
+  const loadNpcTemplate = name => {
+    const t = savedNpcTemplates[name];
+    if (!t) return;
+    setNpcForm(f => ({
+      ...f,
+      name,
+      maxHp: t.maxHp,
+      mod: t.mod,
+      advanced: t.advanced || makeDefaultAdvanced()
+    }));
+    setShowNpcLibrary(false);
+  };
+  const deleteNpcTemplate = name => {
+    requestConfirm(`Delete saved NPC "${name}"? This can't be undone.`, () => {
+      setSavedNpcTemplates(prev => {
+        const next = {
+          ...prev
+        };
+        delete next[name];
+        return next;
+      });
+    });
+  };
+  const exportData = () => {
+    const payload = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      state: {
+        combatants,
+        round,
+        turnsThisRound,
+        inCombat,
+        partyLevel
+      },
+      encounters: savedEncounters,
+      parties: savedParties,
+      enemyTemplates: savedEnemyTemplates,
+      npcTemplates: savedNpcTemplates
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: "application/json"
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `initlite-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+  const triggerImport = () => {
+    setImportError("");
+    if (importInputRef.current) importInputRef.current.click();
+  };
+  const handleImportFile = e => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = ""; // allow re-selecting the same file later
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      let payload;
+      try {
+        payload = JSON.parse(ev.target.result);
+      } catch (err) {
+        setImportError("That file doesn't look like a valid InitLite backup (not valid JSON).");
+        return;
+      }
+      if (!payload || typeof payload !== "object") {
+        setImportError("That file doesn't look like a valid InitLite backup.");
+        return;
+      }
+      requestConfirm("Import will overwrite all data on this device — combatants, saved parties, encounters, and the enemy/NPC library. Continue?", () => {
+        if (payload.state) localStorage.setItem(STATE_KEY, JSON.stringify(payload.state));
+        if (payload.encounters) localStorage.setItem(ENCOUNTERS_KEY, JSON.stringify(payload.encounters));
+        if (payload.parties) localStorage.setItem(PARTIES_KEY, JSON.stringify(payload.parties));
+        if (payload.enemyTemplates) localStorage.setItem(ENEMY_TEMPLATES_KEY, JSON.stringify(payload.enemyTemplates));
+        if (payload.npcTemplates) localStorage.setItem(NPC_TEMPLATES_KEY, JSON.stringify(payload.npcTemplates));
+        window.location.reload();
+      });
+    };
+    reader.readAsText(file);
   };
   const deleteEncounter = name => {
     requestConfirm(`Delete saved encounter "${name}"? This can't be undone.`, () => {
@@ -1275,7 +1704,37 @@ function CombatTracker() {
     },
     open: showNpcForm,
     onToggle: () => setShowNpcForm(v => !v)
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowNpcLibrary(v => !v),
+    className: "flex items-center gap-1 text-xs text-stone-300 hover:text-stone-200"
+  }, "📚 Saved NPCs ", /*#__PURE__*/React.createElement("span", {
+    className: `transition-transform inline-block ${showNpcLibrary ? "rotate-180" : ""}`
+  }, "▾")), showNpcLibrary && /*#__PURE__*/React.createElement("div", {
+    className: "mt-1.5 rounded-lg border border-neutral-700 bg-neutral-900 p-2 space-y-1.5"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-1.5"
   }, /*#__PURE__*/React.createElement("input", {
+    value: npcLibrarySaveName,
+    onChange: e => setNpcLibrarySaveName(e.target.value),
+    placeholder: "Save current as…",
+    className: "flex-1 min-w-0 text-xs bg-neutral-950 border border-neutral-700 rounded px-2 py-1 outline-none focus:border-stone-400 placeholder:text-neutral-600"
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: saveNpcTemplate,
+    className: "text-xs px-2 py-1 rounded bg-stone-600 hover:bg-stone-500 text-white shrink-0"
+  }, "💾 Save")), Object.keys(savedNpcTemplates).length === 0 ? /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-neutral-600"
+  }, "No saved NPCs yet.") : /*#__PURE__*/React.createElement("div", {
+    className: "max-h-40 overflow-y-auto space-y-1"
+  }, Object.keys(savedNpcTemplates).sort((a, b) => a.localeCompare(b)).map(name => /*#__PURE__*/React.createElement("div", {
+    key: name,
+    className: "flex items-center justify-between text-xs bg-neutral-800 rounded px-2 py-1"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => loadNpcTemplate(name),
+    className: "text-left flex-1 text-neutral-200 hover:text-white truncate"
+  }, name), /*#__PURE__*/React.createElement("button", {
+    onClick: () => deleteNpcTemplate(name),
+    className: "text-neutral-500 hover:text-rose-300 ml-2 shrink-0"
+  }, "✕")))))), /*#__PURE__*/React.createElement("input", {
     value: npcForm.name,
     onChange: e => setNpcForm({
       ...npcForm,
@@ -1313,7 +1772,14 @@ function CombatTracker() {
     placeholder: "+0",
     inputMode: "numeric",
     className: "w-1/3 text-sm bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 outline-none focus:border-stone-400 placeholder:text-neutral-600"
-  })), /*#__PURE__*/React.createElement("button", {
+  })), /*#__PURE__*/React.createElement(AdvancedFieldsEditor, {
+    value: npcForm.advanced,
+    onChange: adv => setNpcForm({
+      ...npcForm,
+      advanced: adv
+    }),
+    accent: "text-stone-300"
+  }), /*#__PURE__*/React.createElement("button", {
     onClick: addNpcs,
     className: "w-full flex items-center justify-center gap-1 text-sm font-medium bg-stone-600 hover:bg-stone-500 rounded py-1.5"
   }, "+ Add NPC")), /*#__PURE__*/React.createElement(EditorSection, {
@@ -1326,7 +1792,37 @@ function CombatTracker() {
     },
     open: showEnemyForm,
     onToggle: () => setShowEnemyForm(v => !v)
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowEnemyLibrary(v => !v),
+    className: "flex items-center gap-1 text-xs text-rose-300 hover:text-rose-200"
+  }, "📚 Saved Enemies ", /*#__PURE__*/React.createElement("span", {
+    className: `transition-transform inline-block ${showEnemyLibrary ? "rotate-180" : ""}`
+  }, "▾")), showEnemyLibrary && /*#__PURE__*/React.createElement("div", {
+    className: "mt-1.5 rounded-lg border border-neutral-700 bg-neutral-900 p-2 space-y-1.5"
   }, /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-1.5"
+  }, /*#__PURE__*/React.createElement("input", {
+    value: enemyLibrarySaveName,
+    onChange: e => setEnemyLibrarySaveName(e.target.value),
+    placeholder: "Save current as…",
+    className: "flex-1 min-w-0 text-xs bg-neutral-950 border border-neutral-700 rounded px-2 py-1 outline-none focus:border-rose-500 placeholder:text-neutral-600"
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: saveEnemyTemplate,
+    className: "text-xs px-2 py-1 rounded bg-rose-700 hover:bg-rose-600 text-white shrink-0"
+  }, "💾 Save")), Object.keys(savedEnemyTemplates).length === 0 ? /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-neutral-600"
+  }, "No saved enemies yet.") : /*#__PURE__*/React.createElement("div", {
+    className: "max-h-40 overflow-y-auto space-y-1"
+  }, Object.keys(savedEnemyTemplates).sort((a, b) => a.localeCompare(b)).map(name => /*#__PURE__*/React.createElement("div", {
+    key: name,
+    className: "flex items-center justify-between text-xs bg-neutral-800 rounded px-2 py-1"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => loadEnemyTemplate(name),
+    className: "text-left flex-1 text-neutral-200 hover:text-white truncate"
+  }, name), /*#__PURE__*/React.createElement("button", {
+    onClick: () => deleteEnemyTemplate(name),
+    className: "text-neutral-500 hover:text-rose-300 ml-2 shrink-0"
+  }, "✕")))))), /*#__PURE__*/React.createElement("div", {
     className: "flex flex-wrap gap-1.5"
   }, ENEMY_COLORS.map(col => /*#__PURE__*/React.createElement("button", {
     key: col.name,
@@ -1385,14 +1881,21 @@ function CombatTracker() {
     placeholder: "CR (optional)",
     inputMode: "decimal",
     className: "w-1/2 text-sm bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 outline-none focus:border-rose-500 placeholder:text-neutral-600"
-  })), /*#__PURE__*/React.createElement("div", {
+  })), /*#__PURE__*/React.createElement(AdvancedFieldsEditor, {
+    value: enemyForm.advanced,
+    onChange: adv => setEnemyForm({
+      ...enemyForm,
+      advanced: adv
+    }),
+    accent: "text-rose-300"
+  }), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-1.5"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: addEnemies,
     className: "flex-1 flex items-center justify-center gap-1 text-sm font-medium bg-rose-600 hover:bg-rose-500 rounded py-1.5"
-  }, "+ Add Enemy"), lastAddedEnemy && /*#__PURE__*/React.createElement("button", {
+  }, "+ Add Enemy"), enemyClipboard && /*#__PURE__*/React.createElement("button", {
     onClick: duplicateEnemy,
-    title: "Duplicate last enemy",
+    title: "Duplicate from clipboard",
     className: "px-3 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-300 border border-neutral-700 text-sm shrink-0"
   }, "📋"))), /*#__PURE__*/React.createElement(EditorSection, {
     title: "Add Marker",
@@ -1504,7 +2007,33 @@ function CombatTracker() {
     onClick: () => selectedParty && deleteParty(selectedParty),
     disabled: !selectedParty,
     className: "text-sm text-neutral-400 hover:text-rose-300 disabled:opacity-40 rounded px-2 py-1.5 shrink-0"
-  }, "✕"))))), /*#__PURE__*/React.createElement("p", {
+  }, "✕"))), /*#__PURE__*/React.createElement(EditorSection, {
+    title: "Backup & Restore",
+    icon: "💾",
+    accent: {
+      border: "border-neutral-700/50",
+      bg: "bg-neutral-800/20",
+      text: "text-neutral-300"
+    },
+    open: showBackupForm,
+    onToggle: () => setShowBackupForm(v => !v)
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-neutral-600"
+  }, "Move everything — combatants, saved parties, encounters, and the enemy/NPC library — between your devices as a file."), /*#__PURE__*/React.createElement("button", {
+    onClick: exportData,
+    className: "w-full text-sm font-medium bg-neutral-700 hover:bg-neutral-600 rounded py-1.5"
+  }, "⬇️ Export Data"), /*#__PURE__*/React.createElement("button", {
+    onClick: triggerImport,
+    className: "w-full text-sm font-medium bg-neutral-700 hover:bg-neutral-600 rounded py-1.5"
+  }, "⬆️ Import Data"), /*#__PURE__*/React.createElement("input", {
+    ref: importInputRef,
+    type: "file",
+    accept: ".json,application/json",
+    onChange: handleImportFile,
+    className: "hidden"
+  }), importError && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-rose-400"
+  }, importError)))), /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-neutral-500 text-center my-3"
   }, inCombat ? /*#__PURE__*/React.createElement(React.Fragment, null, "Round ", /*#__PURE__*/React.createElement("span", {
     className: `font-bold transition-colors duration-700 ${roundFlash ? "text-amber-400" : "text-neutral-500"}`
@@ -1549,7 +2078,8 @@ function CombatTracker() {
     onUpdate: patch => updateCombatant(c.id, patch),
     onRemove: () => removeCombatant(c.id),
     onEndTurn: endTurn,
-    onInitChange: val => setInitiative(c.id, val)
+    onInitChange: val => setInitiative(c.id, val),
+    onSetClipboard: () => setClipboardFromCard(c)
   }))), dividerIndex === aliveOrder.length && aliveOrder.length > 0 && /*#__PURE__*/React.createElement(RoundDivider, null), deadCombatants.map(c => /*#__PURE__*/React.createElement(CombatantCard, {
     key: c.id,
     c: c,
@@ -1558,7 +2088,8 @@ function CombatTracker() {
     onUpdate: patch => updateCombatant(c.id, patch),
     onRemove: () => removeCombatant(c.id),
     onEndTurn: endTurn,
-    onInitChange: val => setInitiative(c.id, val)
+    onInitChange: val => setInitiative(c.id, val),
+    onSetClipboard: () => setClipboardFromCard(c)
   })))), confirmDialog && /*#__PURE__*/React.createElement(ConfirmModal, {
     message: confirmDialog.message,
     onCancel: () => setConfirmDialog(null),
