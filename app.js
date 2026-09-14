@@ -227,7 +227,7 @@ function setupSort(list) {
     return a.name.localeCompare(b.name);
   });
 }
-const PRESET_CONDITIONS = ["Blinded", "Charmed", "Deafened", "Frightened", "Grappled", "Incapacitated", "Invisible", "Paralyzed", "Petrified", "Poisoned", "Prone", "Restrained", "Stunned", "Unconscious"];
+const PRESET_CONDITIONS = ["Blinded", "Charmed", "Deafened", "Frightened", "Grappled", "Incapacitated", "Invisible", "Paralyzed", "Petrified", "Poisoned", "Prone", "Restrained", "Stunned"];
 function makeCondition(name, limit) {
   return {
     id: uid(),
@@ -324,7 +324,7 @@ function StatusPill({
   const map = {
     active: null,
     unconscious: {
-      text: "Down",
+      text: "Unconscious",
       cls: "bg-amber-900/40 text-amber-300 border-amber-700"
     },
     stable: {
@@ -490,7 +490,7 @@ function ConditionRow({
     className: "text-xs px-2 py-1 rounded bg-violet-700 hover:bg-violet-600 text-white shrink-0"
   }, "Add")), /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-neutral-600"
-  }, "Leave rounds blank to just count up (e.g. how long Hunter's Mark has run).")));
+  }, "Leave rounds blank = count up")));
 }
 function InitiativeEditor({
   value,
@@ -907,7 +907,7 @@ function CombatantCard({
   }, "Alive"), /*#__PURE__*/React.createElement("button", {
     onClick: setDown,
     className: `flex-1 py-1.5 transition-colors ${isDownGroup ? "bg-amber-600 text-neutral-950" : "bg-neutral-900 text-neutral-500 hover:text-neutral-300"}`
-  }, "Down")), c.status === "unconscious" && /*#__PURE__*/React.createElement(DeathSaves, {
+  }, "Unconscious")), c.status === "unconscious" && /*#__PURE__*/React.createElement(DeathSaves, {
     combatant: c,
     onUpdate: onUpdate
   })), (isEnemy || isNpc) && /*#__PURE__*/React.createElement("div", {
@@ -1061,7 +1061,7 @@ function ConfirmModal({
     className: "w-7 h-7 rounded-lg bg-gradient-to-br from-amber-500 to-rose-600 flex items-center justify-center text-sm shrink-0"
   }, "⚔️"), /*#__PURE__*/React.createElement("span", {
     className: "text-sm font-bold text-neutral-200"
-  }, "InitLite")), /*#__PURE__*/React.createElement("p", {
+  }, "init.Lite")), /*#__PURE__*/React.createElement("p", {
     className: "text-sm text-neutral-300 mb-4"
   }, message), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-2"
@@ -1088,7 +1088,7 @@ function EndInitiativeModal({
     className: "w-7 h-7 rounded-lg bg-gradient-to-br from-amber-500 to-rose-600 flex items-center justify-center text-sm shrink-0"
   }, "⚔️"), /*#__PURE__*/React.createElement("span", {
     className: "text-sm font-bold text-neutral-200"
-  }, "InitLite")), /*#__PURE__*/React.createElement("p", {
+  }, "init.Lite")), /*#__PURE__*/React.createElement("p", {
     className: "text-sm text-neutral-300 mb-4"
   }, "End this fight's initiative, or reroll enemies for a new one?"), /*#__PURE__*/React.createElement("div", {
     className: "flex flex-col gap-2"
@@ -1720,11 +1720,11 @@ function CombatTracker() {
       try {
         payload = JSON.parse(ev.target.result);
       } catch (err) {
-        setImportError("That file doesn't look like a valid InitLite backup (not valid JSON).");
+        setImportError("That file doesn't look like a valid init.Lite backup (not valid JSON).");
         return;
       }
       if (!payload || typeof payload !== "object") {
-        setImportError("That file doesn't look like a valid InitLite backup.");
+        setImportError("That file doesn't look like a valid init.Lite backup.");
         return;
       }
       requestConfirm("Import will overwrite all data on this device — combatants, saved parties, encounters, and the enemy/NPC library. Continue?", () => {
@@ -1805,7 +1805,7 @@ function CombatTracker() {
     className: "w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500 to-rose-600 flex items-center justify-center text-lg shrink-0"
   }, "⚔️"), /*#__PURE__*/React.createElement("h1", {
     className: "text-lg font-bold tracking-tight"
-  }, "InitLite")), /*#__PURE__*/React.createElement("button", {
+  }, "init.Lite")), /*#__PURE__*/React.createElement("button", {
     onClick: () => setShowDifficultyPopover(v => !v),
     title: "Encounter difficulty",
     className: `w-8 h-8 rounded-full border flex items-center justify-center text-sm shrink-0 transition-colors ${showDifficultyPopover ? "bg-amber-500 border-amber-400 text-neutral-950" : "bg-neutral-900 border-neutral-800 text-neutral-400 hover:border-neutral-600"}`

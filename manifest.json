@@ -1,6 +1,6 @@
 {
-  "name": "InitLite",
-  "short_name": "InitLite",
+  "name": "init.Lite",
+  "short_name": "init.Lite",
   "description": "Lightweight D&D combat and initiative tracker",
   "start_url": "./index.html",
   "scope": "./",
