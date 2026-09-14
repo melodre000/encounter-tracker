@@ -227,6 +227,49 @@ function setupSort(list) {
     return a.name.localeCompare(b.name);
   });
 }
+const PRESET_CONDITIONS = ["Blinded", "Charmed", "Deafened", "Frightened", "Grappled", "Incapacitated", "Invisible", "Paralyzed", "Petrified", "Poisoned", "Prone", "Restrained", "Stunned", "Unconscious"];
+function makeCondition(name, limit) {
+  return {
+    id: uid(),
+    name,
+    limit: limit === undefined ? null : limit,
+    elapsed: 0,
+    expired: false,
+    carriedOver: false
+  };
+}
+const INACTIVE_CONCENTRATION = {
+  active: false
+};
+function makeConcentration(limit) {
+  return {
+    active: true,
+    limit: limit === undefined ? null : limit,
+    elapsed: 0,
+    expired: false,
+    carriedOver: false
+  };
+}
+
+// Old saves stored conditions as plain strings and concentration as a bare
+// boolean; upgrade both in place so the rest of the app can assume the
+// richer {limit, elapsed, expired, carriedOver} shape everywhere.
+function normalizeCombatant(c) {
+  let next = c;
+  if (next.conditions && next.conditions.some(cond => typeof cond === "string")) {
+    next = {
+      ...next,
+      conditions: next.conditions.map(cond => typeof cond === "string" ? makeCondition(cond, null) : cond)
+    };
+  }
+  if (typeof next.concentration === "boolean") {
+    next = {
+      ...next,
+      concentration: next.concentration ? makeConcentration(null) : INACTIVE_CONCENTRATION
+    };
+  }
+  return next;
+}
 function insertSorted(list, newC) {
   const arr = [...list];
   let idx = arr.length;
@@ -344,40 +387,110 @@ function ConditionRow({
   c,
   onAdd,
   onRemove,
-  onToggleConcentration
+  onClearCarriedOver,
+  onStartConcentration,
+  onDropConcentration,
+  onClearConcentrationCarriedOver
 }) {
-  const [value1, setValue1] = useState("");
-  const [value2, setValue2] = useState("");
-  const submit = (val, setVal) => {
-    if (val.trim()) {
-      onAdd(val.trim());
-      setVal("");
-    }
+  const [adding, setAdding] = useState(false);
+  const [draftName, setDraftName] = useState("");
+  const [draftLimit, setDraftLimit] = useState("");
+  const [concAdding, setConcAdding] = useState(false);
+  const [concDraftLimit, setConcDraftLimit] = useState("");
+  const submit = () => {
+    const name = draftName.trim();
+    if (!name) return;
+    const parsed = draftLimit.trim() === "" ? null : parseInt(draftLimit, 10);
+    onAdd(name, isNaN(parsed) ? null : parsed);
+    setDraftName("");
+    setDraftLimit("");
+    setAdding(false);
   };
+  const startConcentration = () => {
+    const parsed = concDraftLimit.trim() === "" ? null : parseInt(concDraftLimit, 10);
+    onStartConcentration(isNaN(parsed) ? null : parsed);
+    setConcDraftLimit("");
+    setConcAdding(false);
+  };
+  const conc = c.concentration || INACTIVE_CONCENTRATION;
   return /*#__PURE__*/React.createElement("div", {
-    className: "flex flex-wrap items-center gap-1.5 mt-2"
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: onToggleConcentration,
-    className: `flex items-center gap-1 text-xs rounded-full px-2 py-0.5 border font-medium transition-colors ${c.concentration ? "bg-yellow-500/20 text-yellow-300 border-yellow-500" : "bg-transparent text-neutral-500 border-neutral-700 hover:border-neutral-500"}`
-  }, "✨ Concentration"), c.conditions.map(tag => /*#__PURE__*/React.createElement("span", {
-    key: tag,
-    className: "flex items-center gap-1 text-xs bg-violet-900/40 text-violet-300 border border-violet-700 rounded-full px-2 py-0.5"
-  }, tag, /*#__PURE__*/React.createElement("button", {
-    onClick: () => onRemove(tag),
+    className: "mt-2"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap items-center gap-1.5"
+  }, !conc.active ? /*#__PURE__*/React.createElement("button", {
+    onClick: () => setConcAdding(v => !v),
+    className: "flex items-center gap-1 text-xs rounded-full px-2 py-0.5 border font-medium border-dashed border-neutral-700 text-neutral-500 hover:border-neutral-500 hover:text-neutral-300"
+  }, "✨ Concentration") : /*#__PURE__*/React.createElement("span", {
+    className: `flex items-center gap-1 text-xs rounded-full px-2 py-0.5 border font-medium ${conc.expired ? "bg-neutral-800 text-neutral-500 border-neutral-700" : "bg-yellow-500/20 text-yellow-300 border-yellow-500"}`
+  }, conc.expired ? /*#__PURE__*/React.createElement("span", {
+    title: "Expired — announce it's over"
+  }, "🚩") : conc.carriedOver ? /*#__PURE__*/React.createElement("button", {
+    onClick: onClearConcentrationCarriedOver,
+    title: "Carried over from a previous fight — tap to clear"
+  }, "❓") : null, /*#__PURE__*/React.createElement("span", {
+    className: conc.expired ? "line-through" : ""
+  }, "✨ Concentration", conc.limit != null ? ` [${conc.elapsed}/${conc.limit}]` : conc.elapsed > 0 ? ` [${conc.elapsed}]` : ""), /*#__PURE__*/React.createElement("button", {
+    onClick: onDropConcentration,
     className: "hover:text-white"
-  }, "✕"))), /*#__PURE__*/React.createElement("input", {
-    value: value1,
-    onChange: e => setValue1(e.target.value),
-    onKeyDown: e => e.key === "Enter" && submit(value1, setValue1),
-    placeholder: "+ condition",
-    className: "text-xs bg-transparent border border-dashed border-neutral-700 rounded-full px-2 py-0.5 w-24 focus:w-32 transition-all outline-none focus:border-neutral-500 text-neutral-300 placeholder:text-neutral-600"
+  }, "✕")), c.conditions.map(cond => /*#__PURE__*/React.createElement("span", {
+    key: cond.id,
+    className: `flex items-center gap-1 text-xs rounded-full px-2 py-0.5 border ${cond.expired ? "bg-neutral-800 text-neutral-500 border-neutral-700" : "bg-violet-900/40 text-violet-300 border-violet-700"}`
+  }, cond.expired ? /*#__PURE__*/React.createElement("span", {
+    title: "Expired — announce it's over"
+  }, "🚩") : cond.carriedOver ? /*#__PURE__*/React.createElement("button", {
+    onClick: () => onClearCarriedOver(cond.id),
+    title: "Carried over from a previous fight — tap to clear"
+  }, "❓") : null, /*#__PURE__*/React.createElement("span", {
+    className: cond.expired ? "line-through" : ""
+  }, cond.name, cond.limit != null ? ` [${cond.elapsed}/${cond.limit}]` : cond.elapsed > 0 ? ` [${cond.elapsed}]` : ""), /*#__PURE__*/React.createElement("button", {
+    onClick: () => onRemove(cond.id),
+    className: "hover:text-white"
+  }, "✕"))), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setAdding(v => !v),
+    className: "text-xs rounded-full px-2 py-0.5 border border-dashed border-neutral-700 text-neutral-400 hover:border-neutral-500 hover:text-neutral-200"
+  }, "+ Condition")), concAdding && /*#__PURE__*/React.createElement("div", {
+    className: "mt-1.5 rounded-lg border border-neutral-700 bg-neutral-900 p-2 flex items-center gap-1.5"
+  }, /*#__PURE__*/React.createElement("input", {
+    value: concDraftLimit,
+    onChange: e => setConcDraftLimit(e.target.value),
+    onKeyDown: e => e.key === "Enter" && startConcentration(),
+    placeholder: "Rounds (optional)",
+    inputMode: "numeric",
+    className: "w-28 text-xs bg-neutral-950 border border-neutral-700 rounded px-2 py-1 outline-none focus:border-yellow-500 placeholder:text-neutral-600"
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: startConcentration,
+    className: "text-xs px-2 py-1 rounded bg-yellow-600 hover:bg-yellow-500 text-neutral-950 shrink-0"
+  }, "Start"), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-neutral-600 ml-auto"
+  }, "Blank = count up")), adding && /*#__PURE__*/React.createElement("div", {
+    className: "mt-1.5 rounded-lg border border-neutral-700 bg-neutral-900 p-2 space-y-1.5"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap gap-1"
+  }, PRESET_CONDITIONS.map(name => /*#__PURE__*/React.createElement("button", {
+    key: name,
+    onClick: () => setDraftName(name),
+    className: `text-xs px-2 py-0.5 rounded-full border ${draftName === name ? "border-violet-400 bg-violet-900/40 text-violet-200" : "border-neutral-700 text-neutral-400 hover:border-neutral-500"}`
+  }, name))), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-1.5"
+  }, /*#__PURE__*/React.createElement("input", {
+    value: draftName,
+    onChange: e => setDraftName(e.target.value),
+    onKeyDown: e => e.key === "Enter" && submit(),
+    placeholder: "Condition name",
+    className: "flex-1 min-w-0 text-xs bg-neutral-950 border border-neutral-700 rounded px-2 py-1 outline-none focus:border-violet-500 placeholder:text-neutral-600"
   }), /*#__PURE__*/React.createElement("input", {
-    value: value2,
-    onChange: e => setValue2(e.target.value),
-    onKeyDown: e => e.key === "Enter" && submit(value2, setValue2),
-    placeholder: "+ condition",
-    className: "text-xs bg-transparent border border-dashed border-neutral-700 rounded-full px-2 py-0.5 w-24 focus:w-32 transition-all outline-none focus:border-neutral-500 text-neutral-300 placeholder:text-neutral-600"
-  }));
+    value: draftLimit,
+    onChange: e => setDraftLimit(e.target.value),
+    onKeyDown: e => e.key === "Enter" && submit(),
+    placeholder: "Rounds",
+    inputMode: "numeric",
+    className: "w-16 text-xs bg-neutral-950 border border-neutral-700 rounded px-2 py-1 outline-none focus:border-violet-500 placeholder:text-neutral-600"
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: submit,
+    className: "text-xs px-2 py-1 rounded bg-violet-700 hover:bg-violet-600 text-white shrink-0"
+  }, "Add")), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-neutral-600"
+  }, "Leave rounds blank to just count up (e.g. how long Hunter's Mark has run).")));
 }
 function InitiativeEditor({
   value,
@@ -851,17 +964,51 @@ function CombatantCard({
     onUpdate: onUpdate
   })), !isMarker && /*#__PURE__*/React.createElement(ConditionRow, {
     c: c,
-    onAdd: tag => onUpdate({
-      conditions: [...c.conditions, tag]
+    onAdd: (name, limit) => onUpdate({
+      conditions: [...c.conditions, makeCondition(name, limit)]
     }),
-    onRemove: tag => onUpdate({
-      conditions: c.conditions.filter(t => t !== tag)
+    onRemove: condId => onUpdate({
+      conditions: c.conditions.filter(t => t.id !== condId)
     }),
-    onToggleConcentration: () => onUpdate({
-      concentration: !c.concentration
+    onClearCarriedOver: condId => onUpdate({
+      conditions: c.conditions.map(t => t.id === condId ? {
+        ...t,
+        carriedOver: false
+      } : t)
+    }),
+    onStartConcentration: limit => onUpdate({
+      concentration: makeConcentration(limit)
+    }),
+    onDropConcentration: () => onUpdate({
+      concentration: INACTIVE_CONCENTRATION
+    }),
+    onClearConcentrationCarriedOver: () => onUpdate({
+      concentration: {
+        ...c.concentration,
+        carriedOver: false
+      }
     })
   }), inCombat && isCurrent && /*#__PURE__*/React.createElement("button", {
     onClick: () => {
+      const tickedConditions = c.conditions.map(cond => {
+        const elapsed = cond.elapsed + 1;
+        const expired = cond.expired || cond.limit != null && elapsed >= cond.limit;
+        return {
+          ...cond,
+          elapsed,
+          expired
+        };
+      });
+      const conc = c.concentration || INACTIVE_CONCENTRATION;
+      const tickedConcentration = conc.active ? {
+        ...conc,
+        elapsed: conc.elapsed + 1,
+        expired: conc.expired || conc.limit != null && conc.elapsed + 1 >= conc.limit
+      } : conc;
+      onUpdate({
+        conditions: tickedConditions,
+        concentration: tickedConcentration
+      });
       onEndTurn();
       setStatBlockOpen(false);
     },
@@ -960,7 +1107,7 @@ function EndInitiativeModal({
 }
 function CombatTracker() {
   const savedState = loadJSON(STATE_KEY, null);
-  const [combatants, setCombatants] = useState(savedState?.combatants || []);
+  const [combatants, setCombatants] = useState((savedState?.combatants || []).map(normalizeCombatant));
   const [round, setRound] = useState(savedState?.round || 1);
   const [turnsThisRound, setTurnsThisRound] = useState(savedState?.turnsThisRound || 0);
   const [inCombat, setInCombat] = useState(savedState?.inCombat || false);
@@ -1070,7 +1217,7 @@ function CombatTracker() {
     name,
     initiative,
     conditions: [],
-    concentration: false
+    concentration: INACTIVE_CONCENTRATION
   });
   const makePlayer = name => ({
     id: uid(),
@@ -1079,7 +1226,7 @@ function CombatTracker() {
     initiative: 10,
     status: "active",
     conditions: [],
-    concentration: false,
+    concentration: INACTIVE_CONCENTRATION,
     deathSaves: {
       success: 0,
       fail: 0
@@ -1111,7 +1258,7 @@ function CombatTracker() {
         currentHp: hp,
         status: "active",
         conditions: [],
-        concentration: false,
+        concentration: INACTIVE_CONCENTRATION,
         deathSaves: {
           success: 0,
           fail: 0
@@ -1136,7 +1283,7 @@ function CombatTracker() {
           currentHp: hp,
           status: "active",
           conditions: [],
-          concentration: false,
+          concentration: INACTIVE_CONCENTRATION,
           deathSaves: {
             success: 0,
             fail: 0
@@ -1164,7 +1311,7 @@ function CombatTracker() {
         currentHp: hp,
         status: "active",
         conditions: [],
-        concentration: false,
+        concentration: INACTIVE_CONCENTRATION,
         deathSaves: {
           success: 0,
           fail: 0
@@ -1299,6 +1446,32 @@ function CombatTracker() {
       // enemyClipboard intentionally survives Clear Enemies — it only resets on Reset All.
     });
   };
+
+  // Flags any still-active, non-expired conditions as "carried over" whenever
+  // a fresh Round 1 starts — the one signal we track for "did unaccounted
+  // time pass?" instead of a real clock.
+  const flagCarriedOverConditions = c => {
+    let next = c;
+    if (next.conditions && next.conditions.length > 0) {
+      next = {
+        ...next,
+        conditions: next.conditions.map(cond => cond.expired ? cond : {
+          ...cond,
+          carriedOver: true
+        })
+      };
+    }
+    if (next.concentration && next.concentration.active && !next.concentration.expired) {
+      next = {
+        ...next,
+        concentration: {
+          ...next.concentration,
+          carriedOver: true
+        }
+      };
+    }
+    return next;
+  };
   const rollInitiative = () => {
     setCombatants(prev => {
       const rolled = prev.map(c => {
@@ -1321,16 +1494,17 @@ function CombatTracker() {
   const endInitiative = () => {
     setCombatants(prev => {
       const reverted = prev.map(c => {
-        if ((c.type === "enemy" || c.type === "npc") && c.autoRolled) return {
-          ...c,
+        let next = flagCarriedOverConditions(c);
+        if ((next.type === "enemy" || next.type === "npc") && next.autoRolled) next = {
+          ...next,
           initiative: null,
           autoRolled: false
         };
-        if (c.type === "player") return {
-          ...c,
+        if (next.type === "player") next = {
+          ...next,
           initiative: 10
         };
-        return c;
+        return next;
       });
       return setupSort(reverted);
     });
@@ -1342,14 +1516,15 @@ function CombatTracker() {
   const reRollInitiative = () => {
     setCombatants(prev => {
       const rerolled = prev.map(c => {
-        if (c.type === "enemy" || c.type === "npc") {
-          return {
-            ...c,
-            initiative: roll20() + (c.initMod || 0),
+        let next = flagCarriedOverConditions(c);
+        if (next.type === "enemy" || next.type === "npc") {
+          next = {
+            ...next,
+            initiative: roll20() + (next.initMod || 0),
             autoRolled: true
           };
         }
-        return c;
+        return next;
       });
       return sortByInitiative(rerolled);
     });
