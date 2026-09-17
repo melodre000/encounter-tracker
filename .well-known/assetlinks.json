@@ -1,8 +1,0 @@
-[{
-      "relation": ["delegate_permission/common.handle_all_urls"],
-      "target": {
-        "namespace": "android_app",
-        "package_name": "io.github.melodre000.twa",
-        "sha256_cert_fingerprints": ["51:AC:1E:53:F7:8B:35:90:C6:6A:44:AE:F1:B6:77:47:66:08:D8:E7:3D:2B:D8:FF:F6:21:4B:96:A4:0A:07:77"]
-      }
-    }]
