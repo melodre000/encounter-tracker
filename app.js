@@ -671,13 +671,13 @@ function IconSkull({
   className
 }) {
   return /*#__PURE__*/React.createElement("svg", {
-    viewBox: "0 0 24 24",
+    viewBox: "0 0 512 512",
     fill: "currentColor",
     className: className
   }, /*#__PURE__*/React.createElement("path", {
-    fillRule: "evenodd",
-    clipRule: "evenodd",
-    d: "M12 0.034668C7.58171 0.0346494 3.99997 3.61637 3.99997 8.03467V11.1676C3.4725 11.2483 2.80957 11.4137 2.17083 11.7568C1.08501 12.3401 0.50669 13.3461 0.233669 14.274C-0.0362926 15.1914 -0.0467 16.1531 0.113639 16.8458C0.118576 16.8671 0.124212 16.8883 0.130538 16.9092C0.218209 17.1997 0.354168 17.4516 0.529981 17.6665C0.403319 17.8344 0.330281 18.004 0.289019 18.1107C0.193097 18.3589 0.134008 18.6372 0.0963214 18.9034C0.019985 19.4427 0.0101057 20.0899 0.0599281 20.7115C0.109221 21.3265 0.222428 21.9868 0.429691 22.5314C0.532653 22.802 0.678474 23.097 0.892953 23.346C1.11234 23.6006 1.45661 23.8639 1.93303 23.9095C4.23932 24.1307 5.4901 23.767 6.37946 23.0827C6.65738 22.8689 6.92378 22.5927 7.099 22.4111C7.15333 22.3548 7.19889 22.3075 7.23331 22.2741C7.41386 22.0985 7.5401 22.0118 7.71766 21.9583L7.71848 21.958L11.9945 20.6636L15.7347 21.8385L15.7347 21.8386L15.7461 21.842C15.8997 21.8883 16.1091 21.9976 16.4573 22.214C16.5334 22.2613 16.6161 22.3137 16.7045 22.3697L16.705 22.37L16.705 22.37C16.9809 22.5448 17.3112 22.7541 17.6633 22.9496C18.634 23.4884 19.8954 23.9999 21.5872 23.9999C22.5574 23.9999 23.1504 23.3076 23.4545 22.7074C23.7665 22.0916 23.9174 21.3329 23.9575 20.6153C23.9982 19.8892 23.9306 19.1154 23.7354 18.4403C23.6616 18.1849 23.5589 17.9075 23.4155 17.6421C24.0268 16.8215 24.0539 15.7398 23.8913 14.8992C23.6653 13.7309 23.0074 12.5018 22.2171 11.861C21.5427 11.3142 20.6057 11.1603 20 11.1074V8.03467C20 3.6164 16.4183 0.0346866 12 0.034668ZM5.07993 13.0901L5.09652 13.0906C5.11981 13.092 5.1432 13.0927 5.16663 13.0927C5.67074 13.0927 5.99996 13.4718 5.99996 13.8436V14.6496C5.99996 15.0944 6.29378 15.4857 6.72093 15.6099L8.52353 16.1336L6.48292 16.7515C5.2744 16.5242 4.05304 16.5428 3.03394 16.6916C2.58867 16.6355 2.33176 16.5563 2.188 16.4802C2.09581 16.4315 2.06934 16.3975 2.05409 16.358C1.98354 16.0142 1.97995 15.4244 2.15233 14.8385C2.32797 14.2416 2.64696 13.7713 3.11731 13.5187C3.55209 13.2851 4.04812 13.1722 4.46185 13.1229C4.66381 13.0988 4.83426 13.0912 4.95099 13.0895C5.00906 13.0887 5.053 13.0894 5.07993 13.0901ZM14.9059 16.3199L12.2848 17.0844L6.82116 18.7388C6.65783 18.7882 6.48455 18.7951 6.31783 18.7586C5.25172 18.5256 4.12357 18.5411 3.21081 18.6878C2.75081 18.7618 2.37932 18.8636 2.11626 18.9644C2.10306 19.0216 2.08923 19.0943 2.07658 19.1837C2.02497 19.5484 2.01289 20.0445 2.05353 20.5517C2.09471 21.0654 2.1844 21.5192 2.29891 21.8201C2.31664 21.8667 2.33361 21.906 2.34924 21.9385C4.20552 22.0865 4.83662 21.7463 5.15988 21.4976C5.31575 21.3777 5.41118 21.278 5.54345 21.1399L5.54346 21.1399C5.62213 21.0577 5.71384 20.9619 5.83905 20.8402C6.13969 20.5479 6.53666 20.2256 7.13986 20.0435L11.7102 18.6601C11.7259 18.6553 11.7416 18.651 11.7574 18.647L18.4002 16.986C18.5496 16.9487 18.7056 16.9463 18.856 16.9792C19.642 17.1507 20.753 17.0449 21.5612 16.6422C21.8688 16.4889 22.0891 16.1131 21.9277 15.279C21.7684 14.4556 21.2995 13.6918 20.9574 13.4145C20.7755 13.267 20.3573 13.1439 19.8017 13.0977C19.5548 13.0772 19.3277 13.0752 19.1621 13.0786C19.0799 13.0803 19.0147 13.0833 18.9718 13.0857L18.9435 13.0874C18.907 13.0909 18.8702 13.0927 18.8333 13.0927C18.3292 13.0927 18 13.4718 18 13.8436V14.6017V14.6496C18 15.0915 17.7099 15.481 17.2866 15.6076L14.9126 16.3179L14.9059 16.3199L14.9059 16.3199ZM15 13V14.2042L16 13.905V13.8436C16 12.577 16.8628 11.5559 18 11.2148V8.03467C18 4.72097 15.3137 2.03468 12 2.03467C8.68627 2.03465 5.99997 4.72095 5.99997 8.03467V11.2148C7.13715 11.5559 7.99996 12.577 7.99996 13.8436V13.8988L8.99997 14.1894V13C8.99997 12.4477 9.44768 12 9.99997 12C10.5523 12 11 12.4477 11 13V14.3599H12H13V13C13 12.4477 13.4477 12 14 12C14.5523 12 15 12.4477 15 13ZM2.16762 18.8031C2.16787 18.8038 2.16467 18.8118 2.15723 18.8249C2.16364 18.809 2.16736 18.8024 2.16762 18.8031ZM16.3289 19.9288L15.685 19.7265L18.6718 18.9797C19.607 19.1359 20.7222 19.0609 21.7221 18.7313C21.7524 18.8034 21.7837 18.8906 21.8141 18.9956C21.936 19.4175 21.991 19.9608 21.9607 20.5035C21.9298 21.0547 21.816 21.5162 21.6704 21.8035C21.6121 21.9186 21.5677 21.9746 21.542 21.9998C20.3123 21.991 19.3997 21.626 18.634 21.201C18.3372 21.0362 18.0787 20.8725 17.8143 20.705C17.7155 20.6424 17.6159 20.5793 17.5132 20.5155C17.1714 20.303 16.7623 20.0604 16.3289 19.9288ZM21.517 22.0178C21.5168 22.0167 21.5218 22.0125 21.5325 22.0084C21.5226 22.0168 21.5172 22.0189 21.517 22.0178ZM11 9.00003C11 10.1046 9.10583 11 8.00199 11C6.98775 11 6.99365 10.2441 7.00129 9.26451V9.26443C7.00196 9.17792 7.00265 9.08966 7.00265 9.00003C7.00265 7.89546 7.89749 7.00003 9.00133 7.00003C10.1052 7.00003 11 7.89546 11 9.00003ZM16.9974 9.00003C16.9974 9.08969 16.998 9.17797 16.9987 9.26451C17.0064 10.2441 17.0123 11 15.998 11C14.8942 11 13 10.1046 13 9.00003C13 7.89546 13.8948 7.00003 14.9987 7.00003C16.1025 7.00003 16.9974 7.89546 16.9974 9.00003Z"
+    d: "M186.521,265.189v27.578c0,4.969,4.219,9.016,9.438,9.016h23.016c5.203,0,9.422-4.047,9.422-9.016v-23.094h7.859v23.094c0,4.969,4.219,9.016,9.422,9.016h23.031c5.203,0,9.438-4.047,9.438-9.016v-23.094h7.844v23.094c0,4.969,4.219,9.016,9.438,9.016h23.016c5.203,0,9.422-4.047,9.422-9.016v-27.578c23.984-6.969,64.031-23.141,77.656-55.828c9.891-23.766,6.016-55.047-8.797-115.344C381.88,33.689,338.755,0.001,257.177,0.001S132.489,33.689,117.661,94.017c-14.828,60.297-18.719,91.578-8.797,115.344C122.474,242.048,162.521,258.205,186.521,265.189z M314.114,108.83c21.688-3.547,42.844,13.547,47.25,38.156c4.391,24.625-9.625,47.453-31.297,51.016c-21.719,3.531-42.891-13.531-47.281-38.172C278.396,135.22,292.427,112.392,314.114,108.83z M287.724,221.314h-30.547h-30.516l30.516-36.5L287.724,221.314z M153.005,146.986c4.438-24.609,25.563-41.703,47.25-38.156c21.703,3.563,35.75,26.391,31.328,51c-4.391,24.641-25.531,41.703-47.234,38.172C162.63,194.439,148.614,171.611,153.005,146.986z"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M450.208,397.83c-16.391-7.25-35.656-1.156-44.484,13.516c-6.484,8.063-16.563,4.906-21.188,2.875c-3.438-1.516-39.281-17.36-81.844-36.157c36.578-16.75,66.781-30.578,72.828-33.344c16.703-7.641,28.703-11.813,39.719-2.781c9.609,12.813,27.703,17.609,43.078,10.578c17.266-7.891,24.563-27.688,16.297-44.203c-4.984-10-14.547-16.469-25.125-18.297c5.156-9.031,5.891-20.188,0.875-30.203c-8.25-16.516-28.938-23.484-46.203-15.594c-14.953,6.844-22.406,22.594-18.781,37.422c0.859,11.156-15.75,20.094-26.766,25.141c-7.688,3.516-55.188,25.672-105.969,49.172c-47.75-21.094-91.875-40.578-99.359-43.875c-16.828-7.438-27.844-13.609-27.609-27.469c4.188-15.25-3.484-31.641-18.969-38.5c-17.359-7.656-37.953-0.406-45.984,16.219c-4.859,10.063-3.969,21.219,1.328,30.203c-10.563,1.953-20.031,8.531-24.875,18.594c-8.016,16.641-0.438,36.328,16.938,44c15.047,6.641,32.484,2.078,42.094-10.047c8.453-7.766,26.234-1.234,37.297,3.688c5.781,2.547,34.063,14.813,69.359,30.172c-42.5,19.531-78.5,35.86-84.156,37.657c-3.359,1.078-6.375,1.203-9.031,0.813c-0.203-0.453-0.375-0.938-0.609-1.375c-8.234-16.516-28.938-23.5-46.203-15.594c-17.266,7.891-24.563,27.704-16.297,44.219c5,9.969,14.547,16.453,25.125,18.281c-5.141,9.031-5.875,20.203-0.891,30.203c8.281,16.516,28.953,23.5,46.219,15.609c16.313-7.484,23.703-25.531,17.531-41.406c-2.344-9.906,6.609-15.344,11.203-17.453c4.109-1.859,54.563-24.969,107.266-49.094c57.578,25.172,115.453,50.719,121.984,54.61c3,1.781,5.031,3.922,6.406,6.125c-0.25,0.438-0.5,0.859-0.719,1.313c-8.016,16.625-0.453,36.297,16.938,44c17.375,7.656,37.953,0.406,45.984-16.219c4.844-10.047,3.953-21.219-1.328-30.188c10.563-1.969,20.016-8.563,24.875-18.594C475.177,425.205,467.599,405.501,450.208,397.83z"
   }));
 }
 function IconD20({
@@ -918,6 +918,30 @@ function IconStop({
     width: "14",
     height: "14",
     rx: "2"
+  }));
+}
+function IconInfo({
+  className
+}) {
+  return /*#__PURE__*/React.createElement("svg", {
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.5,
+    className: className
+  }, /*#__PURE__*/React.createElement("circle", {
+    cx: "12",
+    cy: "12",
+    r: "10"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M12 17V11",
+    strokeLinecap: "round"
+  }), /*#__PURE__*/React.createElement("circle", {
+    cx: "12",
+    cy: "8",
+    r: "1",
+    fill: "currentColor",
+    stroke: "none"
   }));
 }
 const TYPE_STYLE = {
@@ -1566,6 +1590,106 @@ function EndInitiativeModal({
     className: "text-xs text-neutral-600 mt-3"
   }, "Re-Roll keeps player initiatives and rerolls enemies for a fresh round 1.")));
 }
+function ClearResetModal({
+  onClearEnemies,
+  onResetAll,
+  onCancel
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-30 flex items-center justify-center bg-black/70 p-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-full max-w-sm rounded-xl border border-neutral-700 bg-neutral-900 p-4 shadow-2xl"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 mb-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-7 h-7 rounded-lg overflow-hidden shrink-0"
+  }, /*#__PURE__*/React.createElement("img", {
+    src: LOGO_ICON,
+    alt: "",
+    className: "w-full h-full object-cover"
+  })), /*#__PURE__*/React.createElement("span", {
+    className: "text-sm font-bold text-neutral-200"
+  }, "init.Lite")), /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-neutral-300 mb-4"
+  }, "What would you like to clear?"), /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-col gap-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onClearEnemies,
+    className: "w-full flex items-center justify-center gap-1.5 text-sm font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded-lg py-2"
+  }, /*#__PURE__*/React.createElement(IconTrash, {
+    className: "w-4 h-4"
+  }), " Clear Enemies & Markers"), /*#__PURE__*/React.createElement("button", {
+    onClick: onResetAll,
+    className: "w-full flex items-center justify-center gap-1.5 text-sm font-semibold bg-rose-700 hover:bg-rose-600 text-white rounded-lg py-2"
+  }, /*#__PURE__*/React.createElement(IconRotateCcw, {
+    className: "w-4 h-4"
+  }), " Reset Everything"), /*#__PURE__*/React.createElement("button", {
+    onClick: onCancel,
+    className: "w-full text-sm font-medium bg-transparent hover:bg-neutral-800 text-neutral-400 rounded-lg py-2"
+  }, "Cancel"))));
+}
+const ICON_CREDITS = [{
+  title: "Info Circle SVG Vector",
+  author: "Solar Icons",
+  url: "https://www.svgrepo.com/svg/524660/info-circle"
+}, {
+  title: "Gear SVG Vector",
+  author: "thewolfkit",
+  url: "https://www.svgrepo.com/svg/491639/gear"
+}, {
+  title: "Shield Alt SVG Vector",
+  author: "Dazzle UI",
+  url: "https://www.svgrepo.com/svg/532326/shield-alt"
+}, {
+  title: "Dice Twenty Faces One SVG Vector",
+  author: "game-icons.net",
+  url: "https://www.svgrepo.com/svg/322179/dice-twenty-faces-one"
+}];
+function InfoModal({
+  onClose
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-30 flex items-center justify-center bg-black/70 p-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-full max-w-sm rounded-xl border border-neutral-700 bg-neutral-900 p-4 shadow-2xl max-h-[85vh] overflow-y-auto"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 mb-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-7 h-7 rounded-lg overflow-hidden shrink-0"
+  }, /*#__PURE__*/React.createElement("img", {
+    src: LOGO_ICON,
+    alt: "",
+    className: "w-full h-full object-cover"
+  })), /*#__PURE__*/React.createElement("span", {
+    className: "text-sm font-bold text-neutral-200"
+  }, "init.Lite"), /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "ml-auto text-neutral-500 hover:text-neutral-300"
+  }, /*#__PURE__*/React.createElement(IconX, {
+    className: "w-4 h-4"
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs font-semibold text-neutral-400"
+  }, "Icon Credits"), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2.5"
+  }, ICON_CREDITS.map(c => /*#__PURE__*/React.createElement("div", {
+    key: c.url,
+    className: "text-xs text-neutral-400"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-neutral-200"
+  }, "\"", c.title, "\" — ", c.author, " (", /*#__PURE__*/React.createElement("a", {
+    href: "https://creativecommons.org/licenses/by/4.0/",
+    target: "_blank",
+    rel: "noopener noreferrer",
+    className: "text-sky-400 hover:text-sky-300 underline"
+  }, "CC Attribution"), ")"), /*#__PURE__*/React.createElement("a", {
+    href: c.url,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    className: "text-sky-500 hover:text-sky-400 underline break-all"
+  }, c.url)))))));
+}
 function CombatTracker() {
   const savedState = loadJSON(STATE_KEY, null);
   const [combatants, setCombatants] = useState((savedState?.combatants || []).map(normalizeCombatant));
@@ -1583,6 +1707,8 @@ function CombatTracker() {
   const [showBackupForm, setShowBackupForm] = useState(false);
   const [showMarkerForm, setShowMarkerForm] = useState(false);
   const [showDifficultyPopover, setShowDifficultyPopover] = useState(false);
+  const [showSettingsPopover, setShowSettingsPopover] = useState(false);
+  const [showClearResetModal, setShowClearResetModal] = useState(false);
   const [playerForm, setPlayerForm] = useState({
     name: "",
     initMod: ""
@@ -1627,6 +1753,7 @@ function CombatTracker() {
     onConfirm
   });
   const [showEndInitiativeModal, setShowEndInitiativeModal] = useState(false);
+  const [showInfoModal, setShowInfoModal] = useState(false);
   const currentCardRef = useRef(null);
   const importInputRef = useRef(null);
   const [importError, setImportError] = useState("");
@@ -1910,10 +2037,8 @@ function CombatTracker() {
   };
   const removeCombatant = id => setCombatants(prev => prev.filter(c => c.id !== id));
   const clearEnemies = () => {
-    requestConfirm("Remove all enemies and markers from the tracker?", () => {
-      setCombatants(prev => prev.filter(c => c.type !== "enemy" && c.type !== "marker"));
-      // enemyClipboard intentionally survives Clear Enemies — it only resets on Reset All.
-    });
+    setCombatants(prev => prev.filter(c => c.type !== "enemy" && c.type !== "marker"));
+    // enemyClipboard intentionally survives Clear Enemies — it only resets on Reset All.
   };
 
   // Flags any still-active, non-expired conditions as "carried over" whenever
@@ -2051,13 +2176,11 @@ function CombatTracker() {
     });
   };
   const resetAll = () => {
-    requestConfirm("Reset everything — clear all combatants and end the current fight?", () => {
-      setCombatants([]);
-      setRound(1);
-      setTurnsThisRound(0);
-      setInCombat(false);
-      setEnemyClipboard(null);
-    });
+    setCombatants([]);
+    setRound(1);
+    setTurnsThisRound(0);
+    setInCombat(false);
+    setEnemyClipboard(null);
   };
   const saveEncounter = () => {
     const name = encounterName.trim();
@@ -2294,7 +2417,7 @@ function CombatTracker() {
   }, /*#__PURE__*/React.createElement("div", {
     className: "max-w-2xl mx-auto"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between mb-1"
+    className: "grid grid-cols-3 items-center mb-1"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2"
   }, /*#__PURE__*/React.createElement("div", {
@@ -2304,36 +2427,46 @@ function CombatTracker() {
     alt: "",
     className: "w-full h-full object-cover"
   })), /*#__PURE__*/React.createElement("h1", {
-    className: "text-lg font-bold tracking-tight"
-  }, "init.Lite")), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2 shrink-0"
+    className: "hidden sm:block text-lg font-bold tracking-tight"
+  }, "init.Lite"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowInfoModal(true),
+    title: "About & Credits",
+    className: "text-neutral-500 hover:text-neutral-300 shrink-0"
+  }, /*#__PURE__*/React.createElement(IconInfo, {
+    className: "w-4 h-4"
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-center gap-2"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => setShowDifficultyPopover(v => !v),
     title: "Encounter difficulty",
     className: `w-8 h-8 rounded-full border flex items-center justify-center shrink-0 transition-colors ${showDifficultyPopover ? "bg-amber-500 border-amber-400 text-neutral-950" : "bg-neutral-900 border-neutral-800 text-neutral-400 hover:border-neutral-600"}`
   }, /*#__PURE__*/React.createElement(IconScale, {
     className: "w-4 h-4"
-  })), /*#__PURE__*/React.createElement(PillSwitch, {
+  })), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowSettingsPopover(v => !v),
+    title: "Settings",
+    className: `w-8 h-8 rounded-full border flex items-center justify-center shrink-0 transition-colors ${showSettingsPopover ? "bg-amber-500 border-amber-400 text-neutral-950" : "bg-neutral-900 border-neutral-800 text-neutral-400 hover:border-neutral-600"}`
+  }, /*#__PURE__*/React.createElement(IconSettings, {
+    className: "w-4 h-4"
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "flex justify-end"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowClearResetModal(true),
+    disabled: inCombat,
+    title: inCombat ? "Can't clear/reset mid-initiative" : "Clear or reset",
+    className: `w-8 h-8 rounded-full border flex items-center justify-center shrink-0 transition-colors ${inCombat ? "text-neutral-600 border-neutral-900 opacity-40 cursor-not-allowed" : "bg-neutral-900 border-neutral-800 text-neutral-400 hover:border-rose-800 hover:text-rose-300"}`
+  }, /*#__PURE__*/React.createElement(IconTrash, {
+    className: "w-4 h-4"
+  })))), showSettingsPopover && /*#__PURE__*/React.createElement("div", {
+    className: "mb-3 rounded-lg border border-neutral-700 bg-neutral-800/20 p-3 flex items-center justify-between"
+  }, /*#__PURE__*/React.createElement("span", {
+    onClick: () => setRollPlayersInitiative(v => !v),
+    className: "text-xs text-neutral-400 cursor-pointer select-none"
+  }, "Roll initiative for players"), /*#__PURE__*/React.createElement(PillSwitch, {
     checked: rollPlayersInitiative,
     onClick: () => setRollPlayersInitiative(v => !v),
     title: "Roll initiative for players"
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-1.5 shrink-0"
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: clearEnemies,
-    disabled: inCombat,
-    title: inCombat ? "Can't clear mid-initiative" : "Clear all enemies",
-    className: `flex items-center gap-1 text-xs border rounded-lg px-2 py-1.5 whitespace-nowrap ${inCombat ? "text-neutral-600 border-neutral-900 opacity-40 cursor-not-allowed" : "text-neutral-400 hover:text-rose-300 border-neutral-800 hover:border-rose-800"}`
-  }, /*#__PURE__*/React.createElement(IconTrash, {
-    className: "w-3.5 h-3.5"
-  }), " Clear"), /*#__PURE__*/React.createElement("button", {
-    onClick: resetAll,
-    disabled: inCombat,
-    title: inCombat ? "Can't reset mid-initiative" : "Reset everything",
-    className: `flex items-center gap-1 text-xs border rounded-lg px-2 py-1.5 whitespace-nowrap ${inCombat ? "text-neutral-600 border-neutral-900 opacity-40 cursor-not-allowed" : "text-neutral-400 hover:text-neutral-200 border-neutral-800 hover:border-neutral-600"}`
-  }, /*#__PURE__*/React.createElement(IconRotateCcw, {
-    className: "w-3.5 h-3.5"
-  }), " Reset"))), showDifficultyPopover && /*#__PURE__*/React.createElement("div", {
+  })), showDifficultyPopover && /*#__PURE__*/React.createElement("div", {
     className: "mb-3 rounded-lg border border-amber-900/50 bg-amber-950/10 p-3 space-y-1.5"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-3"
@@ -2869,6 +3002,18 @@ function CombatTracker() {
       setShowEndInitiativeModal(false);
     },
     onCancel: () => setShowEndInitiativeModal(false)
+  }), showInfoModal && /*#__PURE__*/React.createElement(InfoModal, {
+    onClose: () => setShowInfoModal(false)
+  }), showClearResetModal && /*#__PURE__*/React.createElement(ClearResetModal, {
+    onClearEnemies: () => {
+      clearEnemies();
+      setShowClearResetModal(false);
+    },
+    onResetAll: () => {
+      resetAll();
+      setShowClearResetModal(false);
+    },
+    onCancel: () => setShowClearResetModal(false)
   }));
 }
 ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.createElement(CombatTracker, null));
