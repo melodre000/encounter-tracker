@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "init.Lite",
+        "sha256_cert_fingerprints": ["34:73:99:4E:57:4B:B7:E0:58:AF:A6:51:6A:10:87:9A:87:BE:50:25:79:00:B3:3C:FB:07:C5:F2:6C:2B:73:EA"]
+      }
+    }]
