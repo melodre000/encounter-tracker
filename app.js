@@ -191,6 +191,10 @@ function makeDefaultAdvanced() {
     actions: [{
       name: "",
       desc: ""
+    }],
+    reactions: [{
+      name: "",
+      desc: ""
     }]
   };
 }
@@ -201,6 +205,7 @@ function hasAdvancedInfo(adv) {
   if (adv.skills || adv.senses || adv.immunities || adv.resistances || adv.vulnerabilities) return true;
   if (adv.traits && adv.traits.some(t => t.name || t.desc)) return true;
   if (adv.actions && adv.actions.some(a => a.name || a.desc)) return true;
+  if (adv.reactions && adv.reactions.some(r => r.name || r.desc)) return true;
   return false;
 }
 function loadJSON(key, fallback) {
@@ -996,8 +1001,14 @@ function AdvancedFieldsEditor({
       [key]: val
     }
   });
+  // Older saved enemies/NPCs predate "reactions" and won't have that field,
+  // so every list read falls back to a single empty row.
+  const getList = field => value[field] || [{
+    name: "",
+    desc: ""
+  }];
   const updateListItem = (field, idx, key, val) => {
-    const list = value[field].map((item, i) => i === idx ? {
+    const list = getList(field).map((item, i) => i === idx ? {
       ...item,
       [key]: val
     } : item);
@@ -1008,14 +1019,14 @@ function AdvancedFieldsEditor({
   };
   const addListItem = field => onChange({
     ...value,
-    [field]: [...value[field], {
+    [field]: [...getList(field), {
       name: "",
       desc: ""
     }]
   });
   const removeListItem = (field, idx) => onChange({
     ...value,
-    [field]: value[field].filter((_, i) => i !== idx)
+    [field]: getList(field).filter((_, i) => i !== idx)
   });
   const inputCls = "text-sm bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 outline-none placeholder:text-neutral-600";
   return /*#__PURE__*/React.createElement("div", {
@@ -1159,7 +1170,32 @@ function AdvancedFieldsEditor({
   }))))), /*#__PURE__*/React.createElement("button", {
     onClick: () => addListItem("actions"),
     className: "text-xs text-neutral-400 hover:text-neutral-200 mt-1"
-  }, "+ Add Action"))));
+  }, "+ Add Action")), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-neutral-600 mb-1"
+  }, "Reactions"), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-1.5"
+  }, getList("reactions").map((r, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    className: "flex gap-1"
+  }, /*#__PURE__*/React.createElement("input", {
+    placeholder: "Name",
+    value: r.name,
+    onChange: e => updateListItem("reactions", i, "name", e.target.value),
+    className: `w-1/3 ${inputCls}`
+  }), /*#__PURE__*/React.createElement("input", {
+    placeholder: "Description",
+    value: r.desc,
+    onChange: e => updateListItem("reactions", i, "desc", e.target.value),
+    className: `flex-1 ${inputCls}`
+  }), getList("reactions").length > 1 && /*#__PURE__*/React.createElement("button", {
+    onClick: () => removeListItem("reactions", i),
+    className: "text-neutral-600 hover:text-rose-300 px-1"
+  }, /*#__PURE__*/React.createElement(IconX, {
+    className: "w-3 h-3"
+  }))))), /*#__PURE__*/React.createElement("button", {
+    onClick: () => addListItem("reactions"),
+    className: "text-xs text-neutral-400 hover:text-neutral-200 mt-1"
+  }, "+ Add Reaction"))));
 }
 function StatBlockPanel({
   advanced: a
@@ -1168,6 +1204,7 @@ function StatBlockPanel({
   const infoLines = [["Armor Class", a.ac], ["Size", a.size], ["Speed", a.speed], ["Skills", a.skills], ["Senses", a.senses], ["Immunities", a.immunities], ["Resistances", a.resistances], ["Vulnerabilities", a.vulnerabilities]].filter(([, v]) => v);
   const traits = a.traits.filter(t => t.name || t.desc);
   const actions = a.actions.filter(t => t.name || t.desc);
+  const reactions = (a.reactions || []).filter(t => t.name || t.desc);
   return /*#__PURE__*/React.createElement("div", {
     className: "mt-2 rounded-lg border border-amber-900/40 bg-amber-950/10 p-3 font-serif"
   }, infoLines.length > 0 && /*#__PURE__*/React.createElement("div", {
@@ -1202,7 +1239,18 @@ function StatBlockPanel({
     className: "text-xs text-neutral-300"
   }, /*#__PURE__*/React.createElement("span", {
     className: "italic font-bold text-amber-200"
-  }, act.name, "."), " ", act.desc)))));
+  }, act.name, "."), " ", act.desc)))), reactions.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: `border-t border-amber-800/40 pt-2 ${actions.length > 0 ? "mt-2" : ""}`
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-center text-sm font-bold text-amber-300 tracking-wide mb-1"
+  }, "Reactions"), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-1.5"
+  }, reactions.map((rea, i) => /*#__PURE__*/React.createElement("p", {
+    key: i,
+    className: "text-xs text-neutral-300"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "italic font-bold text-amber-200"
+  }, rea.name, "."), " ", rea.desc)))));
 }
 function CombatantCard({
   c,
