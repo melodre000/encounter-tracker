@@ -218,8 +218,100 @@ function loadJSON(key, fallback) {
 function initVal(c) {
   return c.initiative === null || c.initiative === undefined ? -Infinity : c.initiative;
 }
+
+// ---- Linked creatures (e.g. a rider and its mount share one turn) ----
+// A "child" carries `linkedTo: <parentId>`. For turn purposes a parent and its
+// children form one "unit": they act on the parent's initiative, stay together
+// in the order, and rotate to the bottom together on End Turn.
+function isAttachedChild(c, byId) {
+  if (!c.linkedTo) return false;
+  const parent = byId.get(c.linkedTo);
+  // Only valid if the parent exists and is not itself a child (no chains/cycles).
+  return !!parent && !parent.linkedTo;
+}
+function buildUnits(list) {
+  const byId = new Map(list.map(c => [c.id, c]));
+  const units = [];
+  list.forEach(c => {
+    if (isAttachedChild(c, byId)) return;
+    const kids = list.filter(k => k.linkedTo === c.id && isAttachedChild(k, byId));
+    units.push([c, ...kids]);
+  });
+  return units;
+}
+
+// Children mirror their parent's initiative (and roll flag) at all times.
+function syncLinkedInitiative(list) {
+  const byId = new Map(list.map(c => [c.id, c]));
+  return list.map(c => {
+    if (!isAttachedChild(c, byId)) return c;
+    const p = byId.get(c.linkedTo);
+    return {
+      ...c,
+      initiative: p.initiative,
+      autoRolled: p.autoRolled
+    };
+  });
+}
+
+// Detach a child. A player left with no initiative falls back to the default 10.
+function releaseChild(c) {
+  const {
+    linkedTo,
+    ...rest
+  } = c;
+  if (rest.type === "player" && (rest.initiative === null || rest.initiative === undefined)) rest.initiative = 10;
+  return rest;
+}
+
+// Drop links whose parent no longer exists (after removals / Clear).
+function clearOrphanLinks(list) {
+  const ids = new Set(list.map(c => c.id));
+  return list.map(c => c.linkedTo && !ids.has(c.linkedTo) ? releaseChild(c) : c);
+}
+
+// When a creature dies, its link breaks: the dead one leaves the pair and any
+// survivor becomes an ordinary combatant at the position it already held.
+function breakLinksOnDeath(list, deadId) {
+  return list.map(c => {
+    if (c.id === deadId && c.linkedTo) {
+      const {
+        linkedTo,
+        ...rest
+      } = c;
+      return rest;
+    }
+    if (c.linkedTo === deadId) return releaseChild(c);
+    return c;
+  });
+}
+
+// Advance one creature's condition/concentration counters by a round.
+function tickCreature(c) {
+  const conditions = (c.conditions || []).map(cond => {
+    const elapsed = cond.elapsed + 1;
+    const expired = cond.expired || cond.limit != null && elapsed >= cond.limit;
+    return {
+      ...cond,
+      elapsed,
+      expired
+    };
+  });
+  const conc = c.concentration || INACTIVE_CONCENTRATION;
+  const concentration = conc.active ? {
+    ...conc,
+    elapsed: conc.elapsed + 1,
+    expired: conc.expired || conc.limit != null && conc.elapsed + 1 >= conc.limit
+  } : conc;
+  return {
+    ...c,
+    conditions,
+    concentration
+  };
+}
 function sortByInitiative(list) {
-  return [...list].sort((a, b) => initVal(b) - initVal(a));
+  // Sort whole units by their leader's initiative so a linked pair never splits.
+  return [...buildUnits(list)].sort((a, b) => initVal(b[0]) - initVal(a[0])).flat();
 }
 const TYPE_ORDER = {
   player: 0,
@@ -925,6 +1017,21 @@ function IconStop({
     rx: "2"
   }));
 }
+function IconChain({
+  className
+}) {
+  return /*#__PURE__*/React.createElement("svg", {
+    viewBox: "0 0 512 512",
+    fill: "currentColor",
+    className: className
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M278.172,297.375l-51.203,51.188c0.016,0.594,0.031,1.188,0.031,1.781c0,8.406-1.594,16.781-4.766,24.625c-3.203,7.813-7.922,15.156-14.375,21.563l-33.672,33.719c-6.453,6.438-13.766,11.156-21.609,14.344c-7.859,3.188-16.219,4.781-24.609,4.781c-8.375,0-16.75-1.594-24.594-4.75c-7.844-3.219-15.156-7.938-21.625-14.375c-6.438-6.438-11.156-13.75-14.344-21.594s-4.781-16.219-4.781-24.625c0-8.375,1.594-16.75,4.781-24.594s7.906-15.156,14.344-21.625l33.719-33.688c6.438-6.406,13.734-11.156,21.594-14.344c7.828-3.188,16.219-4.781,24.594-4.781c0.594,0,1.188,0.031,1.766,0.063l51.203-51.234c-1.594-0.734-3.203-1.422-4.844-2.078c-15.422-6.25-31.781-9.375-48.125-9.375s-32.719,3.125-48.125,9.375c-15.422,6.25-29.906,15.688-42.359,28.094l-33.688,33.719c-12.438,12.406-21.859,26.906-28.109,42.344S0,367.688,0,384.031s3.125,32.719,9.375,48.156c6.25,15.406,15.672,29.906,28.109,42.313c12.422,12.469,26.922,21.906,42.344,28.125c15.438,6.281,31.797,9.375,48.141,9.375c16.359,0,32.719-3.094,48.141-9.375c15.422-6.219,29.922-15.656,42.344-28.125l33.703-33.656c12.422-12.469,21.844-26.938,28.109-42.344c6.266-15.469,9.359-31.813,9.375-48.156c-0.016-16.313-3.109-32.688-9.375-48.156C279.594,300.594,278.891,298.969,278.172,297.375z"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M502.625,79.844c-6.25-15.438-15.672-29.938-28.109-42.359c-12.422-12.422-26.922-21.859-42.359-28.109C416.734,3.125,400.375,0,384.031,0s-32.719,3.125-48.141,9.375s-29.922,15.688-42.344,28.109l-33.703,33.703C247.422,83.594,238,98.094,231.734,113.531c-6.266,15.406-9.359,31.781-9.359,48.141c0,16.344,3.094,32.703,9.359,48.141c0.672,1.625,1.359,3.219,2.094,4.828l51.203-51.203c-0.016-0.578-0.031-1.156-0.031-1.766c0-8.391,1.594-16.781,4.781-24.609c3.188-7.844,7.906-15.156,14.359-21.625l33.672-33.688c6.453-6.406,13.766-11.141,21.625-14.344c7.813-3.156,16.203-4.781,24.594-4.781c8.406,0,16.75,1.625,24.625,4.781c7.813,3.203,15.141,7.938,21.594,14.344c6.438,6.469,11.156,13.781,14.344,21.625c3.156,7.844,4.781,16.219,4.781,24.594c0,8.391-1.625,16.75-4.781,24.625c-3.188,7.844-7.906,15.156-14.344,21.594l-33.688,33.688c-6.438,6.438-13.766,11.156-21.625,14.344c-7.828,3.188-16.203,4.781-24.594,4.781c-0.594,0-1.188-0.016-1.766-0.031l-51.203,51.219c1.594,0.719,3.203,1.422,4.813,2.063c15.453,6.281,31.813,9.406,48.156,9.406s32.719-3.125,48.125-9.406c15.422-6.25,29.906-15.672,42.359-28.094l33.688-33.703c12.438-12.422,21.859-26.922,28.109-42.359c6.25-15.406,9.375-31.781,9.375-48.125S508.875,95.25,502.625,79.844z"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M160.219,351.781c12.234,12.25,32.063,12.25,44.281,0L351.781,204.5c12.219-12.219,12.25-32.031,0-44.281c-12.234-12.219-32.063-12.219-44.281,0L160.219,307.531C148,319.75,148,339.563,160.219,351.781z"
+  }));
+}
 function IconInfo({
   className
 }) {
@@ -1261,7 +1368,12 @@ function CombatantCard({
   onEndTurn,
   onInitChange,
   cardRef,
-  onSetClipboard
+  onSetClipboard,
+  onChain,
+  chainState,
+  isLinkedChild,
+  linkedParentName,
+  hideEndTurn
 }) {
   const [statBlockOpen, setStatBlockOpen] = useState(false);
   const [dmgInput, setDmgInput] = useState("");
@@ -1355,7 +1467,7 @@ function CombatantCard({
   }, /*#__PURE__*/React.createElement("div", {
     className: `flex items-center justify-center w-8 h-8 rounded-lg border shrink-0 relative text-sm ${style.iconBg}`
   }, /*#__PURE__*/React.createElement(TypeIcon, {
-    icon: style.icon
+    icon: isLinkedChild ? IconChain : style.icon
   }), c.color && /*#__PURE__*/React.createElement("span", {
     className: "absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border border-neutral-950",
     style: {
@@ -1373,14 +1485,23 @@ function CombatantCard({
     className: "flex items-center gap-2 mt-0.5"
   }, /*#__PURE__*/React.createElement("span", {
     className: "text-xs text-neutral-500"
-  }, "Init"), /*#__PURE__*/React.createElement(InitiativeEditor, {
+  }, "Init"), isLinkedChild ? /*#__PURE__*/React.createElement("span", {
+    className: "text-sm font-bold text-neutral-300 tabular-nums px-1",
+    title: `Shares initiative with ${linkedParentName}`
+  }, c.initiative === null || c.initiative === undefined ? "—" : c.initiative) : /*#__PURE__*/React.createElement(InitiativeEditor, {
     value: c.initiative,
     onChange: onInitChange
   }), /*#__PURE__*/React.createElement(StatusPill, {
     status: c.status
   })))), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-1.5 shrink-0"
-  }, (isEnemy || isNpc) && !dead && /*#__PURE__*/React.createElement("button", {
+  }, !isMarker && !dead && onChain && /*#__PURE__*/React.createElement("button", {
+    onClick: onChain,
+    title: chainState === "linked" ? "Unlink" : chainState === "selected" ? "Cancel linking" : chainState === "target" ? "Link with the selected creature" : "Link to another creature (shared initiative)",
+    className: `transition-colors ${chainState === "selected" ? "text-orange-500" : chainState === "linked" ? "text-emerald-400 hover:text-emerald-300" : chainState === "target" ? "text-orange-300/70 hover:text-orange-400" : "text-neutral-600 hover:text-orange-300"}`
+  }, /*#__PURE__*/React.createElement(IconChain, {
+    className: "w-4 h-4"
+  })), (isEnemy || isNpc) && !dead && /*#__PURE__*/React.createElement("button", {
     onClick: markDead,
     title: "Mark dead",
     className: "text-neutral-600 hover:text-rose-400"
@@ -1490,27 +1611,8 @@ function CombatantCard({
         carriedOver: false
       }
     })
-  }), inCombat && isCurrent && /*#__PURE__*/React.createElement("button", {
+  }), inCombat && isCurrent && !hideEndTurn && /*#__PURE__*/React.createElement("button", {
     onClick: () => {
-      const tickedConditions = c.conditions.map(cond => {
-        const elapsed = cond.elapsed + 1;
-        const expired = cond.expired || cond.limit != null && elapsed >= cond.limit;
-        return {
-          ...cond,
-          elapsed,
-          expired
-        };
-      });
-      const conc = c.concentration || INACTIVE_CONCENTRATION;
-      const tickedConcentration = conc.active ? {
-        ...conc,
-        elapsed: conc.elapsed + 1,
-        expired: conc.expired || conc.limit != null && conc.elapsed + 1 >= conc.limit
-      } : conc;
-      onUpdate({
-        conditions: tickedConditions,
-        concentration: tickedConcentration
-      });
       onEndTurn();
       setStatBlockOpen(false);
     },
@@ -1802,6 +1904,7 @@ function CombatTracker() {
   });
   const [showEndInitiativeModal, setShowEndInitiativeModal] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
+  const [linkSourceId, setLinkSourceId] = useState(null);
   const currentCardRef = useRef(null);
   const importInputRef = useRef(null);
   const [importError, setImportError] = useState("");
@@ -2069,24 +2172,82 @@ function CombatTracker() {
         const rest = prev.filter(c => c.id !== id);
         return insertSorted(rest, updated);
       }
-      const next = [...prev];
+      let next = [...prev];
       next[idx] = updated;
+      // Death breaks a link: the dead creature drops to the bottom as usual and
+      // any survivor carries on as an ordinary combatant.
+      if (cleanPatch.status === "dead" && prev[idx].status !== "dead") next = breakLinksOnDeath(next, id);
       return next;
     });
   };
   const setInitiative = (id, value) => {
     setCombatants(prev => {
-      const updated = prev.map(c => c.id === id ? {
+      const updated = syncLinkedInitiative(prev.map(c => c.id === id ? {
         ...c,
         initiative: value
-      } : c);
+      } : c));
       return inCombat ? sortByInitiative(updated) : updated;
     });
   };
-  const removeCombatant = id => setCombatants(prev => prev.filter(c => c.id !== id));
+  const removeCombatant = id => setCombatants(prev => clearOrphanLinks(prev.filter(c => c.id !== id)));
   const clearEnemies = () => {
-    setCombatants(prev => prev.filter(c => c.type !== "enemy" && c.type !== "marker"));
+    setCombatants(prev => clearOrphanLinks(prev.filter(c => c.type !== "enemy" && c.type !== "marker")));
     // enemyClipboard intentionally survives Clear Enemies — it only resets on Reset All.
+  };
+
+  // ---- Linking (rider + mount share one turn) ----
+  const linkedIds = new Set();
+  {
+    const byId = new Map(combatants.map(c => [c.id, c]));
+    combatants.forEach(c => {
+      if (isAttachedChild(c, byId)) {
+        linkedIds.add(c.id);
+        linkedIds.add(c.linkedTo);
+      }
+    });
+  }
+  const activeLinkSource = combatants.find(c => c.id === linkSourceId && c.status !== "dead" && !linkedIds.has(c.id)) || null;
+  const linkCreatures = (parentId, childId) => {
+    setCombatants(prev => {
+      const parent = prev.find(c => c.id === parentId);
+      const child = prev.find(c => c.id === childId);
+      if (!parent || !child || parent.linkedTo || child.linkedTo) return prev;
+      // Put the child right behind its parent and let it share the parent's initiative.
+      const without = prev.filter(c => c.id !== childId);
+      const at = without.findIndex(c => c.id === parentId);
+      without.splice(at + 1, 0, {
+        ...child,
+        linkedTo: parentId,
+        initiative: parent.initiative,
+        autoRolled: parent.autoRolled
+      });
+      return without;
+    });
+  };
+  const unlinkCreature = id => {
+    setCombatants(prev => prev.map(c => c.id === id && c.linkedTo || c.linkedTo === id ? releaseChild(c) : c));
+  };
+
+  // First tap selects (turns orange), tapping the same chain again cancels,
+  // tapping another creature's chain links the two. Tapping a linked chain unlinks.
+  const handleChain = id => {
+    const target = combatants.find(c => c.id === id);
+    if (!target || target.status === "dead") return;
+    if (linkedIds.has(id)) {
+      unlinkCreature(id);
+      setLinkSourceId(null);
+      return;
+    }
+    if (!activeLinkSource) {
+      setLinkSourceId(id);
+      return;
+    }
+    if (activeLinkSource.id === id) {
+      setLinkSourceId(null);
+      return;
+    }
+    linkCreatures(activeLinkSource.id, id);
+    setLinkSourceId(null);
   };
 
   // Flags any still-active, non-expired conditions as "carried over" whenever
@@ -2133,7 +2294,7 @@ function CombatTracker() {
         }
         return c;
       });
-      return sortByInitiative(rolled);
+      return sortByInitiative(syncLinkedInitiative(rolled));
     });
     setInCombat(true);
     setRound(1);
@@ -2156,7 +2317,7 @@ function CombatTracker() {
         };
         return next;
       });
-      return setupSort(reverted);
+      return setupSort(syncLinkedInitiative(reverted));
     });
     setInCombat(false);
     setRound(1);
@@ -2182,16 +2343,20 @@ function CombatTracker() {
         }
         return next;
       });
-      return sortByInitiative(rerolled);
+      return sortByInitiative(syncLinkedInitiative(rerolled));
     });
     setRound(1);
     setTurnsThisRound(0);
     setTurnHistory([]);
   };
+
+  // A turn belongs to a whole unit (a creature plus anything linked to it), so
+  // rounds count units, and every creature in the acting unit has its
+  // condition/concentration counters ticked here — whichever End Turn button
+  // (card or sticky banner) triggered it.
   const endTurn = () => {
-    const alive = combatants.filter(c => c.status !== "dead");
-    if (alive.length === 0) return;
-    const aliveCount = alive.length;
+    const unitCount = buildUnits(combatants.filter(c => c.status !== "dead")).length;
+    if (unitCount === 0) return;
     setTurnHistory(h => [...h, {
       combatants,
       round,
@@ -2200,13 +2365,14 @@ function CombatTracker() {
     setCombatants(prev => {
       const aliveNow = prev.filter(c => c.status !== "dead");
       const deadNow = prev.filter(c => c.status === "dead");
-      if (aliveNow.length === 0) return prev;
-      const [first, ...rest] = aliveNow;
-      return [...rest, first, ...deadNow];
+      const units = buildUnits(aliveNow);
+      if (units.length === 0) return prev;
+      const [first, ...rest] = units;
+      return [...rest.flat(), ...first.map(tickCreature), ...deadNow];
     });
     setTurnsThisRound(t => {
       const next = t + 1;
-      if (next >= aliveCount) {
+      if (next >= unitCount) {
         setRound(r => r + 1);
         return 0;
       }
@@ -2224,6 +2390,7 @@ function CombatTracker() {
     });
   };
   const resetAll = () => {
+    setLinkSourceId(null);
     setCombatants([]);
     setRound(1);
     setTurnsThisRound(0);
@@ -2449,7 +2616,24 @@ function CombatTracker() {
   };
   const aliveOrder = combatants.filter(c => c.status !== "dead");
   const deadCombatants = combatants.filter(c => c.status === "dead");
-  const dividerIndex = inCombat ? clamp(aliveOrder.length - turnsThisRound, 0, aliveOrder.length) : -1;
+  const aliveUnits = buildUnits(aliveOrder);
+  const dividerIndex = inCombat ? clamp(aliveUnits.length - turnsThisRound, 0, aliveUnits.length) : -1;
+  const chainStateFor = cmb => {
+    if (linkedIds.has(cmb.id)) return "linked";
+    if (activeLinkSource) return activeLinkSource.id === cmb.id ? "selected" : "target";
+    return "idle";
+  };
+  const cardProps = cmb => ({
+    c: cmb,
+    inCombat,
+    onUpdate: patch => updateCombatant(cmb.id, patch),
+    onRemove: () => removeCombatant(cmb.id),
+    onEndTurn: endTurn,
+    onInitChange: val => setInitiative(cmb.id, val),
+    onSetClipboard: () => setClipboardFromCard(cmb),
+    onChain: () => handleChain(cmb.id),
+    chainState: chainStateFor(cmb)
+  });
   const partyCount = partySize.trim() !== "" ? parseInt(partySize, 10) : combatants.filter(c => c.type === "player").length;
   const parsedLevel = parseInt(partyLevel, 10);
   const difficulty = computeDifficulty(combatants.filter(c => c.type === "enemy"), parsedLevel, partyCount);
@@ -2994,13 +3178,15 @@ function CombatTracker() {
     className: `px-4 rounded-lg border transition-colors flex items-center justify-center ${turnHistory.length === 0 ? "opacity-30 cursor-not-allowed border-neutral-800 text-neutral-600" : "border-neutral-700 bg-neutral-800 text-neutral-300 hover:border-neutral-500 hover:text-neutral-100"}`
   }, /*#__PURE__*/React.createElement(IconUndo, {
     className: "w-4 h-4"
-  }))), inCombat && !currentCardVisible && aliveOrder[0] && /*#__PURE__*/React.createElement("div", {
+  }))), activeLinkSource && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-orange-400 text-center text-balance -mt-3 mb-3"
+  }, "Linking ", activeLinkSource.name, " — tap another chain, or tap again to cancel."), inCombat && !currentCardVisible && aliveUnits[0] && /*#__PURE__*/React.createElement("div", {
     className: "fixed top-0 left-0 right-0 z-20 bg-amber-500 text-neutral-950 px-4 py-2 flex items-center justify-between shadow-lg"
   }, /*#__PURE__*/React.createElement("span", {
     className: "flex items-center gap-1 text-sm font-bold truncate"
   }, /*#__PURE__*/React.createElement(IconChevronRight, {
     className: "w-4 h-4 shrink-0"
-  }), " ", aliveOrder[0].name, "'s turn"), /*#__PURE__*/React.createElement("button", {
+  }), " ", aliveUnits[0].map(m => m.name).join(" + "), "'s turn"), /*#__PURE__*/React.createElement("button", {
     onClick: endTurn,
     className: "text-xs font-bold bg-neutral-950 text-amber-400 rounded px-3 py-1.5 shrink-0 ml-2"
   }, "End Turn")), combatants.length === 0 ? /*#__PURE__*/React.createElement("div", {
@@ -3011,28 +3197,39 @@ function CombatTracker() {
     className: "text-sm"
   }, "Add combatants to begin the encounter.")) : /*#__PURE__*/React.createElement("div", {
     className: "space-y-2.5"
-  }, aliveOrder.map((c, i) => /*#__PURE__*/React.createElement(React.Fragment, {
-    key: c.id
-  }, i === dividerIndex && /*#__PURE__*/React.createElement(RoundDivider, null), /*#__PURE__*/React.createElement(CombatantCard, {
-    c: c,
-    isCurrent: i === 0,
-    inCombat: inCombat,
-    cardRef: i === 0 ? currentCardRef : null,
-    onUpdate: patch => updateCombatant(c.id, patch),
-    onRemove: () => removeCombatant(c.id),
-    onEndTurn: endTurn,
-    onInitChange: val => setInitiative(c.id, val),
-    onSetClipboard: () => setClipboardFromCard(c)
-  }))), dividerIndex === aliveOrder.length && aliveOrder.length > 0 && /*#__PURE__*/React.createElement(RoundDivider, null), deadCombatants.map(c => /*#__PURE__*/React.createElement(CombatantCard, {
+  }, aliveUnits.map((unit, u) => {
+    const [leader, ...kids] = unit;
+    return /*#__PURE__*/React.createElement(React.Fragment, {
+      key: leader.id
+    }, u === dividerIndex && /*#__PURE__*/React.createElement(RoundDivider, null), /*#__PURE__*/React.createElement(CombatantCard, {
+      ...cardProps(leader),
+      isCurrent: u === 0,
+      cardRef: u === 0 ? currentCardRef : null
+    }), kids.map(kid => /*#__PURE__*/React.createElement("div", {
+      key: kid.id,
+      "data-link-child": "true",
+      className: "relative ml-6"
+    }, /*#__PURE__*/React.createElement("span", {
+      "aria-hidden": "true",
+      "data-link-line": "true",
+      className: "absolute border-l-2 border-b-2 border-emerald-500/70 rounded-bl-lg pointer-events-none",
+      style: {
+        left: "-0.875rem",
+        top: "-0.625rem",
+        width: "0.875rem",
+        height: "2.375rem"
+      }
+    }), /*#__PURE__*/React.createElement(CombatantCard, {
+      ...cardProps(kid),
+      isCurrent: u === 0,
+      hideEndTurn: true,
+      isLinkedChild: true,
+      linkedParentName: leader.name
+    }))));
+  }), dividerIndex === aliveUnits.length && aliveUnits.length > 0 && /*#__PURE__*/React.createElement(RoundDivider, null), deadCombatants.map(c => /*#__PURE__*/React.createElement(CombatantCard, {
     key: c.id,
-    c: c,
-    isCurrent: false,
-    inCombat: inCombat,
-    onUpdate: patch => updateCombatant(c.id, patch),
-    onRemove: () => removeCombatant(c.id),
-    onEndTurn: endTurn,
-    onInitChange: val => setInitiative(c.id, val),
-    onSetClipboard: () => setClipboardFromCard(c)
+    ...cardProps(c),
+    isCurrent: false
   })))), confirmDialog && /*#__PURE__*/React.createElement(ConfirmModal, {
     message: confirmDialog.message,
     onCancel: () => setConfirmDialog(null),
