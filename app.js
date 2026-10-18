@@ -320,10 +320,28 @@ const TYPE_ORDER = {
   marker: 3
 };
 function setupSort(list) {
-  return [...list].sort((a, b) => {
+  // Sort whole units (leader + attached children) so linked pairs stay together.
+  return [...buildUnits(list)].sort((ua, ub) => {
+    const a = ua[0],
+      b = ub[0];
     if (a.type !== b.type) return TYPE_ORDER[a.type] - TYPE_ORDER[b.type];
     return a.name.localeCompare(b.name);
-  });
+  }).flat();
+}
+
+// Inserts a whole unit into a list of units by its leader's initiative
+// (after any equal ones), without splitting any other unit.
+function insertUnitSorted(units, unit) {
+  const out = [...units];
+  let idx = out.length;
+  for (let i = 0; i < out.length; i++) {
+    if (initVal(unit[0]) > initVal(out[i][0])) {
+      idx = i;
+      break;
+    }
+  }
+  out.splice(idx, 0, unit);
+  return out;
 }
 const PRESET_CONDITIONS = ["Blinded", "Charmed", "Deafened", "Frightened", "Grappled", "Incapacitated", "Invisible", "Paralyzed", "Petrified", "Poisoned", "Prone", "Restrained", "Stunned"];
 function makeCondition(name, limit) {
@@ -1738,7 +1756,7 @@ function EndInitiativeModal({
     className: "w-full text-sm font-medium bg-transparent hover:bg-neutral-800 text-neutral-400 rounded-lg py-2"
   }, "Cancel")), /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-neutral-600 mt-3"
-  }, "Re-Roll keeps player initiatives and rerolls enemies for a fresh round 1.")));
+  }, "Re-Roll keeps player initiatives and rerolls enemies for a fresh round 1. Ended by mistake? Tap Resume afterwards to bring back the same rolls.")));
 }
 function ClearResetModal({
   onClearEnemies,
@@ -1920,6 +1938,18 @@ function CombatTracker() {
     }
   }, [round]);
   const [turnHistory, setTurnHistory] = useState([]);
+
+  // Snapshot taken when initiative is ended, so it can be resumed with the same
+  // rolls, order and round if End Initiative was pressed by mistake.
+  const [lastInitiative, setLastInitiative] = useState(() => {
+    const s = savedState?.lastInitiative;
+    if (!s || !Array.isArray(s.combatants)) return null;
+    return {
+      combatants: s.combatants.map(normalizeCombatant),
+      round: s.round || 1,
+      turnsThisRound: s.turnsThisRound || 0
+    };
+  });
   useEffect(() => {
     localStorage.setItem(STATE_KEY, JSON.stringify({
       combatants,
@@ -1928,9 +1958,10 @@ function CombatTracker() {
       inCombat,
       partyLevel,
       partySize,
-      rollPlayersInitiative
+      rollPlayersInitiative,
+      lastInitiative
     }));
-  }, [combatants, round, turnsThisRound, inCombat, partyLevel, partySize, rollPlayersInitiative]);
+  }, [combatants, round, turnsThisRound, inCombat, partyLevel, partySize, rollPlayersInitiative, lastInitiative]);
   useEffect(() => {
     localStorage.setItem(ENCOUNTERS_KEY, JSON.stringify(savedEncounters));
   }, [savedEncounters]);
@@ -2073,7 +2104,19 @@ function CombatTracker() {
     setCombatants(prev => {
       let next = [...prev];
       newItems.forEach(c => {
-        next = inCombat ? insertSorted(next, c) : [...next, c];
+        if (!inCombat) {
+          next = [...next, c];
+          return;
+        }
+        // A linked child goes straight behind its parent (and any siblings).
+        const pIdx = c.linkedTo ? next.findIndex(x => x.id === c.linkedTo) : -1;
+        if (pIdx >= 0) {
+          let at = pIdx + 1;
+          while (at < next.length && next[at].linkedTo === c.linkedTo) at++;
+          next.splice(at, 0, c);
+        } else {
+          next = insertSorted(next, c);
+        }
       });
       return inCombat ? next : setupSort(next);
     });
@@ -2300,8 +2343,14 @@ function CombatTracker() {
     setRound(1);
     setTurnsThisRound(0);
     setTurnHistory([]);
+    setLastInitiative(null);
   };
   const endInitiative = () => {
+    setLastInitiative({
+      combatants,
+      round,
+      turnsThisRound
+    });
     setCombatants(prev => {
       const reverted = prev.map(c => {
         let next = flagCarriedOverConditions(c);
@@ -2323,6 +2372,58 @@ function CombatTracker() {
     setRound(1);
     setTurnsThisRound(0);
     setTurnHistory([]);
+  };
+
+  // Anyone from the ended fight who still exists gets their old initiative,
+  // conditions and turn position back (HP/status stay as they are now).
+  // Anyone added since is rolled in; anyone removed since is simply gone.
+  const canResume = !!lastInitiative && combatants.some(c => lastInitiative.combatants.some(s => s.id === c.id));
+  const resumeInitiative = () => {
+    if (!lastInitiative || !canResume) return;
+    const snapIdx = new Map(lastInitiative.combatants.map((s, i) => [s.id, i]));
+    const snapById = new Map(lastInitiative.combatants.map(s => [s.id, s]));
+    const restored = combatants.map(c => {
+      const s = snapById.get(c.id);
+      if (s) return {
+        ...c,
+        initiative: s.initiative,
+        autoRolled: s.autoRolled,
+        conditions: s.conditions,
+        concentration: s.concentration
+      };
+      if ((c.type === "enemy" || c.type === "npc") && (c.initiative === null || c.initiative === undefined)) return {
+        ...c,
+        initiative: roll20() + (c.initMod || 0),
+        autoRolled: true
+      };
+      if (c.type === "player" && rollPlayersInitiative) return {
+        ...c,
+        initiative: roll20() + (c.initMod || 0),
+        autoRolled: true
+      };
+      return c;
+    });
+    const synced = syncLinkedInitiative(restored);
+    const alive = synced.filter(c => c.status !== "dead");
+    const dead = synced.filter(c => c.status === "dead");
+    const known = alive.filter(c => snapIdx.has(c.id)).sort((a, b) => snapIdx.get(a.id) - snapIdx.get(b.id));
+    const fresh = alive.filter(c => !snapIdx.has(c.id));
+    // New units slot in by initiative; a new child just follows its parent.
+    const knownIds = new Set(known.map(c => c.id));
+    let units = buildUnits(known);
+    buildUnits(fresh).filter(u => !(u[0].linkedTo && knownIds.has(u[0].linkedTo))).forEach(u => {
+      units = insertUnitSorted(units, u);
+    });
+    const strays = fresh.filter(c => c.linkedTo && knownIds.has(c.linkedTo));
+    // Re-group so every child sits directly behind its parent.
+    const ordered = [...buildUnits([...units.flat(), ...strays]).flat(), ...dead];
+    const unitCount = buildUnits(ordered.filter(c => c.status !== "dead")).length;
+    setCombatants(ordered);
+    setInCombat(true);
+    setRound(lastInitiative.round);
+    setTurnsThisRound(Math.min(lastInitiative.turnsThisRound, Math.max(unitCount - 1, 0)));
+    setTurnHistory([]);
+    setLastInitiative(null);
   };
   const reRollInitiative = () => {
     setCombatants(prev => {
@@ -2396,17 +2497,20 @@ function CombatTracker() {
     setTurnsThisRound(0);
     setInCombat(false);
     setEnemyClipboard(null);
+    setLastInitiative(null);
   };
   const saveEncounter = () => {
     const name = encounterName.trim();
     if (!name) return;
-    const templates = combatants.filter(c => c.type === "enemy" || c.type === "npc" || c.type === "marker").map(c => {
-      if (c.type === "marker") return {
+    const saved = combatants.filter(c => c.type === "enemy" || c.type === "npc" || c.type === "marker");
+    const idxById = new Map(saved.map((c, i) => [c.id, i]));
+    const byId = new Map(combatants.map(c => [c.id, c]));
+    const templates = saved.map(c => {
+      const t = c.type === "marker" ? {
         type: "marker",
         name: c.name,
         initiative: c.initiative
-      };
-      return {
+      } : {
         type: c.type,
         name: c.name,
         maxHp: c.maxHp,
@@ -2415,6 +2519,10 @@ function CombatTracker() {
         cr: c.cr || null,
         advanced: c.advanced || null
       };
+      // Remember a link by the parent's position in this saved list. Links to
+      // creatures that aren't saved (players) are simply left out.
+      if (isAttachedChild(c, byId) && idxById.has(c.linkedTo)) t.linkedToIdx = idxById.get(c.linkedTo);
+      return t;
     });
     if (templates.length === 0) return;
     setSavedEncounters(prev => ({
@@ -2427,12 +2535,21 @@ function CombatTracker() {
     if (!selectedEncounter || !savedEncounters[selectedEncounter]) return;
     const templates = savedEncounters[selectedEncounter];
     const existingNames = new Set(combatants.filter(c => c.type === "enemy").map(c => c.name));
-    const items = templates.flatMap(t => {
-      if (t.type === "marker") return [makeMarker(t.name, t.initiative)];
-      if (t.type === "npc") return buildNpcs(t.name, 1, t.maxHp, t.initMod, t.advanced);
-      return buildEnemies(t.name, 1, t.maxHp, t.initMod, t.color, t.cr, existingNames, t.advanced);
+    const built = templates.map(t => {
+      if (t.type === "marker") return makeMarker(t.name, t.initiative);
+      if (t.type === "npc") return buildNpcs(t.name, 1, t.maxHp, t.initMod, t.advanced)[0];
+      return buildEnemies(t.name, 1, t.maxHp, t.initMod, t.color, t.cr, existingNames, t.advanced)[0];
     });
-    addToList(items);
+    // Re-create saved links with the freshly generated ids (pairs only, no chains).
+    built.forEach((item, i) => {
+      const pi = templates[i].linkedToIdx;
+      if (typeof pi !== "number" || pi === i || !built[pi] || templates[pi].linkedToIdx != null) return;
+      item.linkedTo = built[pi].id;
+      item.initiative = built[pi].initiative;
+      item.autoRolled = built[pi].autoRolled;
+    });
+    // Parents first, so children can be placed right behind them.
+    addToList([...built.filter(x => !x.linkedTo), ...built.filter(x => x.linkedTo)]);
   };
   const saveEnemyTemplate = () => {
     const raw = enemyForm.name.trim();
@@ -3171,7 +3288,13 @@ function CombatTracker() {
     className: "w-4 h-4"
   }) : /*#__PURE__*/React.createElement(IconD20, {
     className: "w-4 h-4"
-  }), " ", inCombat ? "End Initiative" : "Roll Initiative"), inCombat && /*#__PURE__*/React.createElement("button", {
+  }), " ", inCombat ? "End Initiative" : "Roll Initiative"), !inCombat && canResume && /*#__PURE__*/React.createElement("button", {
+    onClick: resumeInitiative,
+    title: "Resume the initiative you just ended, with the same rolls",
+    className: "px-3 rounded-lg border border-amber-700/60 bg-neutral-800 text-amber-300 hover:border-amber-500 hover:text-amber-200 transition-colors flex items-center justify-center gap-1.5 text-sm font-semibold"
+  }, /*#__PURE__*/React.createElement(IconUndo, {
+    className: "w-4 h-4"
+  }), " Resume"), inCombat && /*#__PURE__*/React.createElement("button", {
     onClick: undoEndTurn,
     disabled: turnHistory.length === 0,
     title: "Undo last End Turn",
