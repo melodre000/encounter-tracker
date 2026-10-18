@@ -935,6 +935,18 @@ function IconUpload({
     d: "M4 20h16"
   }));
 }
+function IconRewind({
+  className
+}) {
+  return /*#__PURE__*/React.createElement("svg", {
+    viewBox: "0 0 16 16",
+    fill: "currentColor",
+    "aria-hidden": "true",
+    className: className
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M6 14H8L8 9L13 14H15L15 2H13L8 7L8 2H6L0 8L6 14Z"
+  }));
+}
 function IconUndo({
   className
 }) {
@@ -3288,18 +3300,15 @@ function CombatTracker() {
     className: "w-4 h-4"
   }) : /*#__PURE__*/React.createElement(IconD20, {
     className: "w-4 h-4"
-  }), " ", inCombat ? "End Initiative" : "Roll Initiative"), !inCombat && canResume && /*#__PURE__*/React.createElement("button", {
-    onClick: resumeInitiative,
-    title: "Resume the initiative you just ended, with the same rolls",
-    className: "px-3 rounded-lg border border-amber-700/60 bg-neutral-800 text-amber-300 hover:border-amber-500 hover:text-amber-200 transition-colors flex items-center justify-center gap-1.5 text-sm font-semibold"
-  }, /*#__PURE__*/React.createElement(IconUndo, {
+  }), " ", inCombat ? "End Initiative" : "Roll Initiative"), (inCombat || canResume) && /*#__PURE__*/React.createElement("button", {
+    onClick: inCombat ? undoEndTurn : resumeInitiative,
+    disabled: inCombat && turnHistory.length === 0,
+    title: inCombat ? "Undo last End Turn" : "Resume the initiative you just ended, with the same rolls",
+    "aria-label": inCombat ? "Undo last End Turn" : "Resume previous initiative",
+    className: `px-4 rounded-lg border transition-colors flex items-center justify-center ${inCombat && turnHistory.length === 0 ? "opacity-30 cursor-not-allowed border-neutral-800 text-neutral-600" : "border-neutral-700 bg-neutral-800 text-neutral-300 hover:border-neutral-500 hover:text-neutral-100"}`
+  }, inCombat ? /*#__PURE__*/React.createElement(IconUndo, {
     className: "w-4 h-4"
-  }), " Resume"), inCombat && /*#__PURE__*/React.createElement("button", {
-    onClick: undoEndTurn,
-    disabled: turnHistory.length === 0,
-    title: "Undo last End Turn",
-    className: `px-4 rounded-lg border transition-colors flex items-center justify-center ${turnHistory.length === 0 ? "opacity-30 cursor-not-allowed border-neutral-800 text-neutral-600" : "border-neutral-700 bg-neutral-800 text-neutral-300 hover:border-neutral-500 hover:text-neutral-100"}`
-  }, /*#__PURE__*/React.createElement(IconUndo, {
+  }) : /*#__PURE__*/React.createElement(IconRewind, {
     className: "w-4 h-4"
   }))), activeLinkSource && /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-orange-400 text-center text-balance -mt-3 mb-3"
