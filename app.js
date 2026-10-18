@@ -169,8 +169,15 @@ const NPC_TEMPLATES_KEY = "dndTracker.npcTemplates.v1";
 function makeDefaultAdvanced() {
   return {
     ac: "",
+    armorType: "",
     size: "",
+    creatureType: "",
     speed: "",
+    burrow: "",
+    climb: "",
+    fly: "",
+    swim: "",
+    languages: "",
     abilities: {
       str: "",
       dex: "",
@@ -195,17 +202,28 @@ function makeDefaultAdvanced() {
     reactions: [{
       name: "",
       desc: ""
+    }],
+    bonusActions: [{
+      name: "",
+      desc: ""
+    }],
+    lairActions: [{
+      name: "",
+      desc: ""
     }]
   };
 }
 function hasAdvancedInfo(adv) {
   if (!adv) return false;
-  if (adv.ac || adv.size || adv.speed) return true;
+  if (adv.ac || adv.armorType || adv.size || adv.creatureType) return true;
+  if (adv.speed || adv.burrow || adv.climb || adv.fly || adv.swim || adv.languages) return true;
   if (adv.abilities && Object.values(adv.abilities).some(v => v)) return true;
   if (adv.skills || adv.senses || adv.immunities || adv.resistances || adv.vulnerabilities) return true;
   if (adv.traits && adv.traits.some(t => t.name || t.desc)) return true;
   if (adv.actions && adv.actions.some(a => a.name || a.desc)) return true;
   if (adv.reactions && adv.reactions.some(r => r.name || r.desc)) return true;
+  if (adv.bonusActions && adv.bonusActions.some(r => r.name || r.desc)) return true;
+  if (adv.lairActions && adv.lairActions.some(r => r.name || r.desc)) return true;
   return false;
 }
 function loadJSON(key, fallback) {
@@ -1182,36 +1200,56 @@ function AdvancedFieldsEditor({
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex gap-1.5"
   }, /*#__PURE__*/React.createElement("input", {
+    placeholder: "Size",
+    value: value.size ?? "",
+    onChange: e => update({
+      size: e.target.value
+    }),
+    className: `w-1/3 ${inputCls}`
+  }), /*#__PURE__*/React.createElement("input", {
+    placeholder: "Type (e.g. humanoid)",
+    value: value.creatureType ?? "",
+    onChange: e => update({
+      creatureType: e.target.value
+    }),
+    className: `flex-1 min-w-0 ${inputCls}`
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-1.5"
+  }, /*#__PURE__*/React.createElement("input", {
     placeholder: "AC",
-    value: value.ac,
+    value: value.ac ?? "",
     onChange: e => update({
       ac: e.target.value
     }),
     inputMode: "numeric",
-    className: `${onCrChange ? "w-1/4" : "w-1/3"} ${inputCls}`
+    className: `w-1/5 ${inputCls}`
   }), /*#__PURE__*/React.createElement("input", {
-    placeholder: "Size",
-    value: value.size,
+    placeholder: "Armor type",
+    value: value.armorType ?? "",
     onChange: e => update({
-      size: e.target.value
+      armorType: e.target.value
     }),
-    className: `${onCrChange ? "w-1/4" : "w-1/3"} ${inputCls}`
-  }), /*#__PURE__*/React.createElement("input", {
-    placeholder: "Speed",
-    value: value.speed,
-    onChange: e => update({
-      speed: e.target.value
-    }),
-    inputMode: "numeric",
-    className: `${onCrChange ? "w-1/4" : "w-1/3"} ${inputCls}`
+    className: `flex-1 min-w-0 ${inputCls}`
   }), onCrChange && /*#__PURE__*/React.createElement("input", {
     placeholder: "CR",
-    title: "Challenge Rating (optional)",
+    title: "Challenge Rating (optional) — XP is filled in from this",
     value: cr,
     onChange: e => onCrChange(e.target.value),
     inputMode: "decimal",
-    className: `w-1/4 ${inputCls}`
+    className: `w-1/5 ${inputCls}`
   })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-neutral-600 mb-1"
+  }, "Speeds (ft.)"), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-5 gap-1"
+  }, [["speed", "Walk"], ["burrow", "Burrow"], ["climb", "Climb"], ["fly", "Fly"], ["swim", "Swim"]].map(([k, label]) => /*#__PURE__*/React.createElement("input", {
+    key: k,
+    placeholder: label,
+    value: value[k] ?? "",
+    onChange: e => update({
+      [k]: e.target.value
+    }),
+    className: `text-center px-0.5 min-w-0 ${inputCls.replace("text-sm", "text-xs")}`
+  })))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-neutral-600 mb-1"
   }, "Ability score modifiers"), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-6 gap-1"
@@ -1230,17 +1268,10 @@ function AdvancedFieldsEditor({
     }),
     className: `w-full ${inputCls}`
   }), /*#__PURE__*/React.createElement("input", {
-    placeholder: "Senses (e.g. passive Perception 13)",
-    value: value.senses,
+    placeholder: "Vulnerabilities",
+    value: value.vulnerabilities,
     onChange: e => update({
-      senses: e.target.value
-    }),
-    className: `w-full ${inputCls}`
-  }), /*#__PURE__*/React.createElement("input", {
-    placeholder: "Immunities",
-    value: value.immunities,
-    onChange: e => update({
-      immunities: e.target.value
+      vulnerabilities: e.target.value
     }),
     className: `w-full ${inputCls}`
   }), /*#__PURE__*/React.createElement("input", {
@@ -1251,102 +1282,90 @@ function AdvancedFieldsEditor({
     }),
     className: `w-full ${inputCls}`
   }), /*#__PURE__*/React.createElement("input", {
-    placeholder: "Vulnerabilities",
-    value: value.vulnerabilities,
+    placeholder: "Immunities",
+    value: value.immunities,
     onChange: e => update({
-      vulnerabilities: e.target.value
+      immunities: e.target.value
     }),
     className: `w-full ${inputCls}`
-  }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+  }), /*#__PURE__*/React.createElement("input", {
+    placeholder: "Senses (e.g. passive Perception 13)",
+    value: value.senses,
+    onChange: e => update({
+      senses: e.target.value
+    }),
+    className: `w-full ${inputCls}`
+  }), /*#__PURE__*/React.createElement("input", {
+    placeholder: "Languages",
+    value: value.languages ?? "",
+    onChange: e => update({
+      languages: e.target.value
+    }),
+    className: `w-full ${inputCls}`
+  }), [["traits", "Traits", "Trait"], ["actions", "Actions", "Action"], ["bonusActions", "Bonus Actions", "Bonus Action"], ["reactions", "Reactions", "Reaction"], ["lairActions", "Lair Actions", "Lair Action"]].map(([field, title, noun]) => /*#__PURE__*/React.createElement("div", {
+    key: field
+  }, /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-neutral-600 mb-1"
-  }, "Traits"), /*#__PURE__*/React.createElement("div", {
+  }, title), /*#__PURE__*/React.createElement("div", {
     className: "space-y-1.5"
-  }, value.traits.map((t, i) => /*#__PURE__*/React.createElement("div", {
+  }, getList(field).map((it, i) => /*#__PURE__*/React.createElement("div", {
     key: i,
     className: "flex gap-1"
   }, /*#__PURE__*/React.createElement("input", {
     placeholder: "Name",
-    value: t.name,
-    onChange: e => updateListItem("traits", i, "name", e.target.value),
+    value: it.name,
+    onChange: e => updateListItem(field, i, "name", e.target.value),
     className: `w-1/3 ${inputCls}`
   }), /*#__PURE__*/React.createElement("input", {
     placeholder: "Description",
-    value: t.desc,
-    onChange: e => updateListItem("traits", i, "desc", e.target.value),
+    value: it.desc,
+    onChange: e => updateListItem(field, i, "desc", e.target.value),
     className: `flex-1 ${inputCls}`
-  }), value.traits.length > 1 && /*#__PURE__*/React.createElement("button", {
-    onClick: () => removeListItem("traits", i),
+  }), getList(field).length > 1 && /*#__PURE__*/React.createElement("button", {
+    onClick: () => removeListItem(field, i),
     className: "text-neutral-600 hover:text-rose-300 px-1"
   }, /*#__PURE__*/React.createElement(IconX, {
     className: "w-3 h-3"
   }))))), /*#__PURE__*/React.createElement("button", {
-    onClick: () => addListItem("traits"),
+    onClick: () => addListItem(field),
     className: "text-xs text-neutral-400 hover:text-neutral-200 mt-1"
-  }, "+ Add Trait")), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
-    className: "text-xs text-neutral-600 mb-1"
-  }, "Actions"), /*#__PURE__*/React.createElement("div", {
-    className: "space-y-1.5"
-  }, value.actions.map((a, i) => /*#__PURE__*/React.createElement("div", {
-    key: i,
-    className: "flex gap-1"
-  }, /*#__PURE__*/React.createElement("input", {
-    placeholder: "Name",
-    value: a.name,
-    onChange: e => updateListItem("actions", i, "name", e.target.value),
-    className: `w-1/3 ${inputCls}`
-  }), /*#__PURE__*/React.createElement("input", {
-    placeholder: "Description",
-    value: a.desc,
-    onChange: e => updateListItem("actions", i, "desc", e.target.value),
-    className: `flex-1 ${inputCls}`
-  }), value.actions.length > 1 && /*#__PURE__*/React.createElement("button", {
-    onClick: () => removeListItem("actions", i),
-    className: "text-neutral-600 hover:text-rose-300 px-1"
-  }, /*#__PURE__*/React.createElement(IconX, {
-    className: "w-3 h-3"
-  }))))), /*#__PURE__*/React.createElement("button", {
-    onClick: () => addListItem("actions"),
-    className: "text-xs text-neutral-400 hover:text-neutral-200 mt-1"
-  }, "+ Add Action")), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
-    className: "text-xs text-neutral-600 mb-1"
-  }, "Reactions"), /*#__PURE__*/React.createElement("div", {
-    className: "space-y-1.5"
-  }, getList("reactions").map((r, i) => /*#__PURE__*/React.createElement("div", {
-    key: i,
-    className: "flex gap-1"
-  }, /*#__PURE__*/React.createElement("input", {
-    placeholder: "Name",
-    value: r.name,
-    onChange: e => updateListItem("reactions", i, "name", e.target.value),
-    className: `w-1/3 ${inputCls}`
-  }), /*#__PURE__*/React.createElement("input", {
-    placeholder: "Description",
-    value: r.desc,
-    onChange: e => updateListItem("reactions", i, "desc", e.target.value),
-    className: `flex-1 ${inputCls}`
-  }), getList("reactions").length > 1 && /*#__PURE__*/React.createElement("button", {
-    onClick: () => removeListItem("reactions", i),
-    className: "text-neutral-600 hover:text-rose-300 px-1"
-  }, /*#__PURE__*/React.createElement(IconX, {
-    className: "w-3 h-3"
-  }))))), /*#__PURE__*/React.createElement("button", {
-    onClick: () => addListItem("reactions"),
-    className: "text-xs text-neutral-400 hover:text-neutral-200 mt-1"
-  }, "+ Add Reaction"))));
+  }, "+ Add ", noun)))));
 }
+
+// Bare numbers get "ft." (so "30" reads "30 ft."); anything else is shown as typed.
+const fmtFt = v => /^\d+$/.test(String(v).trim()) ? `${String(v).trim()} ft.` : String(v).trim();
+
+// Laid out like a standard 5e stat block: size/type, AC, speed, ability scores,
+// the property lines, then traits and the action sections. Blank fields are skipped.
 function StatBlockPanel({
-  advanced: a
+  advanced: a,
+  cr
 }) {
   const abilityRow = Object.values(a.abilities).some(v => v);
-  const infoLines = [["Armor Class", a.ac], ["Size", a.size], ["Speed", a.speed], ["Skills", a.skills], ["Senses", a.senses], ["Immunities", a.immunities], ["Resistances", a.resistances], ["Vulnerabilities", a.vulnerabilities]].filter(([, v]) => v);
-  const traits = a.traits.filter(t => t.name || t.desc);
-  const actions = a.actions.filter(t => t.name || t.desc);
-  const reactions = (a.reactions || []).filter(t => t.name || t.desc);
+  const subtitle = [a.size, a.creatureType].map(v => (v || "").trim()).filter(Boolean).join(" ");
+  const acText = a.ac && a.armorType ? `${a.ac} (${a.armorType})` : a.ac || (a.armorType ? `(${a.armorType})` : "");
+  const speedParts = [a.speed && fmtFt(a.speed), a.burrow && `burrow ${fmtFt(a.burrow)}`, a.climb && `climb ${fmtFt(a.climb)}`, a.fly && `fly ${fmtFt(a.fly)}`, a.swim && `swim ${fmtFt(a.swim)}`].filter(Boolean);
+  const topLines = [["Armor Class", acText], ["Speed", speedParts.join(", ")]].filter(([, v]) => v);
+  const crText = (cr || "").toString().trim();
+  const xp = crText ? crToXP(crText) : null;
+  const challenge = crText ? `${crText}${xp !== null ? ` (${xp.toLocaleString("en-US")} XP)` : ""}` : "";
+  const propLines = [["Skills", a.skills], ["Vulnerabilities", a.vulnerabilities], ["Resistances", a.resistances], ["Immunities", a.immunities], ["Senses", a.senses], ["Languages", a.languages], ["Challenge", challenge]].filter(([, v]) => v);
+  const keep = list => (list || []).filter(t => t.name || t.desc);
+  const traits = keep(a.traits);
+  const sections = [["Actions", keep(a.actions)], ["Bonus Actions", keep(a.bonusActions)], ["Reactions", keep(a.reactions)], ["Lair Actions", keep(a.lairActions)]].filter(([, list]) => list.length > 0);
+  const entry = (t, i) => /*#__PURE__*/React.createElement("p", {
+    key: i,
+    className: "text-xs text-neutral-300"
+  }, t.name && /*#__PURE__*/React.createElement("span", {
+    className: "italic font-bold text-amber-200"
+  }, t.name, "."), " ", t.desc);
   return /*#__PURE__*/React.createElement("div", {
     className: "mt-2 rounded-lg border border-amber-900/40 bg-amber-950/10 p-3 font-serif"
-  }, infoLines.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, subtitle && /*#__PURE__*/React.createElement("div", {
+    className: "text-xs italic text-neutral-400 mb-2"
+  }, subtitle), topLines.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "text-xs text-neutral-300 space-y-0.5 mb-2"
-  }, infoLines.map(([label, val]) => /*#__PURE__*/React.createElement("div", {
+  }, topLines.map(([label, val]) => /*#__PURE__*/React.createElement("div", {
     key: label
   }, /*#__PURE__*/React.createElement("span", {
     className: "font-semibold text-amber-300"
@@ -1358,36 +1377,22 @@ function StatBlockPanel({
     className: "font-semibold text-amber-300"
   }, k.toUpperCase()), /*#__PURE__*/React.createElement("div", {
     className: "text-neutral-300"
-  }, a.abilities[k] || "—")))), traits.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, a.abilities[k] || "—")))), propLines.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-neutral-300 space-y-0.5 mb-2"
+  }, propLines.map(([label, val]) => /*#__PURE__*/React.createElement("div", {
+    key: label
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "font-semibold text-amber-300"
+  }, label), " ", val))), traits.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "space-y-1.5 mb-2 border-t border-amber-800/40 pt-2"
-  }, traits.map((t, i) => /*#__PURE__*/React.createElement("p", {
-    key: i,
-    className: "text-xs text-neutral-300"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "italic font-bold text-amber-200"
-  }, t.name, "."), " ", t.desc))), actions.length > 0 && /*#__PURE__*/React.createElement("div", {
-    className: "border-t border-amber-800/40 pt-2"
+  }, traits.map(entry)), sections.map(([title, list], idx) => /*#__PURE__*/React.createElement("div", {
+    key: title,
+    className: `border-t border-amber-800/40 pt-2 ${idx > 0 ? "mt-2" : ""}`
   }, /*#__PURE__*/React.createElement("div", {
     className: "text-center text-sm font-bold text-amber-300 tracking-wide mb-1"
-  }, "Actions"), /*#__PURE__*/React.createElement("div", {
+  }, title), /*#__PURE__*/React.createElement("div", {
     className: "space-y-1.5"
-  }, actions.map((act, i) => /*#__PURE__*/React.createElement("p", {
-    key: i,
-    className: "text-xs text-neutral-300"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "italic font-bold text-amber-200"
-  }, act.name, "."), " ", act.desc)))), reactions.length > 0 && /*#__PURE__*/React.createElement("div", {
-    className: `border-t border-amber-800/40 pt-2 ${actions.length > 0 ? "mt-2" : ""}`
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "text-center text-sm font-bold text-amber-300 tracking-wide mb-1"
-  }, "Reactions"), /*#__PURE__*/React.createElement("div", {
-    className: "space-y-1.5"
-  }, reactions.map((rea, i) => /*#__PURE__*/React.createElement("p", {
-    key: i,
-    className: "text-xs text-neutral-300"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "italic font-bold text-amber-200"
-  }, rea.name, "."), " ", rea.desc)))));
+  }, list.map(entry)))));
 }
 function CombatantCard({
   c,
@@ -1657,7 +1662,8 @@ function CombatantCard({
   }) : /*#__PURE__*/React.createElement(IconChevronDown, {
     className: "w-3 h-3"
   }), statBlockOpen ? "Collapse stat block" : "Expand stat block"), statBlockOpen && /*#__PURE__*/React.createElement(StatBlockPanel, {
-    advanced: c.advanced
+    advanced: c.advanced,
+    cr: c.cr
   })));
 }
 function EditorSection({
