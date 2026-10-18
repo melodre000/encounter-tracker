@@ -191,6 +191,7 @@ function makeDefaultAdvanced() {
     immunities: "",
     resistances: "",
     vulnerabilities: "",
+    conditionImmunities: "",
     traits: [{
       name: "",
       desc: ""
@@ -207,6 +208,10 @@ function makeDefaultAdvanced() {
       name: "",
       desc: ""
     }],
+    legendaryActions: [{
+      name: "",
+      desc: ""
+    }],
     lairActions: [{
       name: "",
       desc: ""
@@ -218,11 +223,12 @@ function hasAdvancedInfo(adv) {
   if (adv.ac || adv.armorType || adv.size || adv.creatureType) return true;
   if (adv.speed || adv.burrow || adv.climb || adv.fly || adv.swim || adv.languages) return true;
   if (adv.abilities && Object.values(adv.abilities).some(v => v)) return true;
-  if (adv.skills || adv.senses || adv.immunities || adv.resistances || adv.vulnerabilities) return true;
+  if (adv.skills || adv.senses || adv.immunities || adv.resistances || adv.vulnerabilities || adv.conditionImmunities) return true;
   if (adv.traits && adv.traits.some(t => t.name || t.desc)) return true;
   if (adv.actions && adv.actions.some(a => a.name || a.desc)) return true;
   if (adv.reactions && adv.reactions.some(r => r.name || r.desc)) return true;
   if (adv.bonusActions && adv.bonusActions.some(r => r.name || r.desc)) return true;
+  if (adv.legendaryActions && adv.legendaryActions.some(r => r.name || r.desc)) return true;
   if (adv.lairActions && adv.lairActions.some(r => r.name || r.desc)) return true;
   return false;
 }
@@ -1268,24 +1274,31 @@ function AdvancedFieldsEditor({
     }),
     className: `w-full ${inputCls}`
   }), /*#__PURE__*/React.createElement("input", {
-    placeholder: "Vulnerabilities",
+    placeholder: "Damage vulnerabilities",
     value: value.vulnerabilities,
     onChange: e => update({
       vulnerabilities: e.target.value
     }),
     className: `w-full ${inputCls}`
   }), /*#__PURE__*/React.createElement("input", {
-    placeholder: "Resistances",
+    placeholder: "Damage resistances",
     value: value.resistances,
     onChange: e => update({
       resistances: e.target.value
     }),
     className: `w-full ${inputCls}`
   }), /*#__PURE__*/React.createElement("input", {
-    placeholder: "Immunities",
+    placeholder: "Damage immunities",
     value: value.immunities,
     onChange: e => update({
       immunities: e.target.value
+    }),
+    className: `w-full ${inputCls}`
+  }), /*#__PURE__*/React.createElement("input", {
+    placeholder: "Condition immunities",
+    value: value.conditionImmunities ?? "",
+    onChange: e => update({
+      conditionImmunities: e.target.value
     }),
     className: `w-full ${inputCls}`
   }), /*#__PURE__*/React.createElement("input", {
@@ -1302,7 +1315,7 @@ function AdvancedFieldsEditor({
       languages: e.target.value
     }),
     className: `w-full ${inputCls}`
-  }), [["traits", "Traits", "Trait"], ["actions", "Actions", "Action"], ["bonusActions", "Bonus Actions", "Bonus Action"], ["reactions", "Reactions", "Reaction"], ["lairActions", "Lair Actions", "Lair Action"]].map(([field, title, noun]) => /*#__PURE__*/React.createElement("div", {
+  }), [["traits", "Traits", "Trait"], ["actions", "Actions", "Action"], ["bonusActions", "Bonus Actions", "Bonus Action"], ["reactions", "Reactions", "Reaction"], ["legendaryActions", "Legendary Actions", "Legendary Action"], ["lairActions", "Lair Actions", "Lair Action"]].map(([field, title, noun]) => /*#__PURE__*/React.createElement("div", {
     key: field
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-neutral-600 mb-1"
@@ -1349,10 +1362,10 @@ function StatBlockPanel({
   const crText = (cr || "").toString().trim();
   const xp = crText ? crToXP(crText) : null;
   const challenge = crText ? `${crText}${xp !== null ? ` (${xp.toLocaleString("en-US")} XP)` : ""}` : "";
-  const propLines = [["Skills", a.skills], ["Vulnerabilities", a.vulnerabilities], ["Resistances", a.resistances], ["Immunities", a.immunities], ["Senses", a.senses], ["Languages", a.languages], ["Challenge", challenge]].filter(([, v]) => v);
+  const propLines = [["Skills", a.skills], ["Damage Vulnerabilities", a.vulnerabilities], ["Damage Resistances", a.resistances], ["Damage Immunities", a.immunities], ["Condition Immunities", a.conditionImmunities], ["Senses", a.senses], ["Languages", a.languages], ["Challenge", challenge]].filter(([, v]) => v);
   const keep = list => (list || []).filter(t => t.name || t.desc);
   const traits = keep(a.traits);
-  const sections = [["Actions", keep(a.actions)], ["Bonus Actions", keep(a.bonusActions)], ["Reactions", keep(a.reactions)], ["Lair Actions", keep(a.lairActions)]].filter(([, list]) => list.length > 0);
+  const sections = [["Actions", keep(a.actions)], ["Bonus Actions", keep(a.bonusActions)], ["Reactions", keep(a.reactions)], ["Legendary Actions", keep(a.legendaryActions)], ["Lair Actions", keep(a.lairActions)]].filter(([, list]) => list.length > 0);
   const entry = (t, i) => /*#__PURE__*/React.createElement("p", {
     key: i,
     className: "text-xs text-neutral-300"
