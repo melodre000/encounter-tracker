@@ -1185,6 +1185,17 @@ function AdvancedFieldsEditor({
       desc: ""
     }]
   });
+  // Swap a row with its neighbour; the stat block shows the list in this order.
+  const moveListItem = (field, idx, dir) => {
+    const list = [...getList(field)];
+    const j = idx + dir;
+    if (j < 0 || j >= list.length) return;
+    [list[idx], list[j]] = [list[j], list[idx]];
+    onChange({
+      ...value,
+      [field]: list
+    });
+  };
   const removeListItem = (field, idx) => onChange({
     ...value,
     [field]: getList(field).filter((_, i) => i !== idx)
@@ -1324,16 +1335,34 @@ function AdvancedFieldsEditor({
   }, getList(field).map((it, i) => /*#__PURE__*/React.createElement("div", {
     key: i,
     className: "flex gap-1"
-  }, /*#__PURE__*/React.createElement("input", {
+  }, getList(field).length > 1 && /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-col justify-center shrink-0"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => moveListItem(field, i, -1),
+    disabled: i === 0,
+    "aria-label": `Move ${noun} up`,
+    title: "Move up",
+    className: "text-neutral-500 hover:text-neutral-200 disabled:opacity-20 disabled:hover:text-neutral-500 p-0.5"
+  }, /*#__PURE__*/React.createElement(IconChevronUp, {
+    className: "w-3.5 h-3.5"
+  })), /*#__PURE__*/React.createElement("button", {
+    onClick: () => moveListItem(field, i, 1),
+    disabled: i === getList(field).length - 1,
+    "aria-label": `Move ${noun} down`,
+    title: "Move down",
+    className: "text-neutral-500 hover:text-neutral-200 disabled:opacity-20 disabled:hover:text-neutral-500 p-0.5"
+  }, /*#__PURE__*/React.createElement(IconChevronDown, {
+    className: "w-3.5 h-3.5"
+  }))), /*#__PURE__*/React.createElement("input", {
     placeholder: "Name",
     value: it.name,
     onChange: e => updateListItem(field, i, "name", e.target.value),
-    className: `w-1/3 ${inputCls}`
+    className: `w-[30%] shrink-0 min-w-0 ${inputCls}`
   }), /*#__PURE__*/React.createElement("input", {
     placeholder: "Description",
     value: it.desc,
     onChange: e => updateListItem(field, i, "desc", e.target.value),
-    className: `flex-1 ${inputCls}`
+    className: `flex-1 min-w-0 ${inputCls}`
   }), getList(field).length > 1 && /*#__PURE__*/React.createElement("button", {
     onClick: () => removeListItem(field, i),
     className: "text-neutral-600 hover:text-rose-300 px-1"
@@ -1844,6 +1873,123 @@ const ICON_CREDITS = [{
   author: "game-icons.net",
   url: "https://www.svgrepo.com/svg/322179/dice-twenty-faces-one"
 }];
+const HELP_QUICK_START = ["Open the Editor and add your Players, NPCs and Enemies. A quantity makes numbered copies (Goblin 1, Goblin 2…).", "Tap Roll Initiative. Enemies and NPCs are rolled for you; set player initiatives first by typing them in on each card.", "Tap End Turn on the highlighted card to move on. The round counter advances after everyone has gone.", "Track damage, healing, conditions and concentration on the cards. Tap End Initiative when the fight is over."];
+const HELP_FAQ = [["How do I set player initiative?", "Type it into the Init box on the player's card (or use − / +) before you roll. Players start at 10. If you'd rather have the app roll for players too, switch on “Roll initiative for players” in Settings (the gear icon)."], ["I ended initiative by mistake. Can I get it back?", "Yes. Right after End Initiative, the rewind button next to Roll Initiative brings the fight back with the same rolls, turn order, round and condition timers. It stays available until you roll a new initiative or Reset All."], ["What does the undo arrow do?", "During a fight, it takes back your last End Turn (up to 20 turns back), including the round counter and condition timers."], ["End Initiative vs. Re-Roll?", "While in a fight, End Initiative opens a choice. End Initiative returns everyone to setup. Re-Roll Initiative keeps player initiatives, rerolls enemies and NPCs, and starts a fresh round 1."], ["How do conditions and concentration work?", "Tap + Condition and pick or type one. Add a number of rounds and it counts down at the end of that creature's turn; leave it blank and it counts up. When a timer runs out it's highlighted, and tapping it clears it. Conditions still active when initiative ends are marked “carried over” into the next fight; tap to clear them."], ["How do I handle a creature going down or dying?", "Use the Alive / Unconscious switch on a card; Unconscious shows death saves. The skull marks a creature dead and moves it to the bottom of the list."], ["How do I link a mount and rider?", "Tap the chain icon on one card (it turns orange), then the chain icon on the other. They now share one initiative and one turn, and the second card sits indented under the first. Tap a linked chain to unlink. A link breaks when either one dies. Linked pairs are saved with encounters."], ["Where are the stat blocks?", "In the Add Enemy and Add NPC forms, open Advanced to fill in AC, speeds, abilities, traits, actions and more. Anything left blank is hidden. On the card, tap Expand stat block. XP is filled in automatically from the CR. When a list (like Actions) has more than one entry, use the up/down arrows beside a row to reorder it, for example to put Multiattack first. The stat block follows that order."], ["How do I roll dice?", "Tap the d20 button at the bottom right, pick a die, and use the slider (1–10) or type a number to choose how many. Tap the same die again to roll. The result appears in the middle of the screen, with Roll again and Close buttons."], ["How do I reuse enemies, encounters and parties?", "In Add Enemy and Add NPC, the Saved lists keep your creatures. Saved Encounters stores the current enemies, NPCs and markers (with links, but not players). Saved Parties stores your players. Pick one and tap Load."], ["How do I make several copies of a creature?", "Tap the clipboard icon on its card to set it as the source, then tap the clipboard button in the Add Enemy form. The form fills with its stats, ready to add."], ["What is a marker?", "A named spot in the turn order with no HP, such as “Lair Actions” at initiative 20. Add one under Add Marker."], ["What does the scale icon do?", "Enter your party's level (and size, if it isn't just your players) to get an approximate encounter difficulty from the enemies' CRs. It's an estimate, not a rule."], ["How do I clear the board?", "Use the trash icon: Clear Enemies keeps your players, while Reset All removes everyone."], ["Is my data safe? Does it work offline?", "Everything is stored only on this device and the app works offline once loaded. Clearing your browser or app data will erase it, so use Editor → Backup & Restore → Export Data now and then. Import Data replaces what's on the device with the file."]];
+const DICE_SIDES = [20, 12, 10, 8, 6, 4];
+const MAX_DICE = 100;
+
+// Floating dice roller (bottom right): tap the d20 to open, tap a die to pick it
+// (a count slider appears), tap the same die again to roll it.
+function DiceRoller() {
+  const [open, setOpen] = useState(false);
+  const [sel, setSel] = useState(null);
+  const [countText, setCountText] = useState("1");
+  const [result, setResult] = useState(null);
+  const parsedCount = () => {
+    const n = parseInt(countText, 10);
+    return isNaN(n) ? 1 : clamp(n, 1, MAX_DICE);
+  };
+  const setCount = n => setCountText(String(clamp(n, 1, MAX_DICE)));
+  const closePanel = () => {
+    setOpen(false);
+    setSel(null);
+    setCountText("1");
+  };
+  const rollDice = (sides, n) => {
+    const rolls = Array.from({
+      length: n
+    }, () => Math.floor(Math.random() * sides) + 1);
+    setResult({
+      sides,
+      n,
+      rolls,
+      total: rolls.reduce((a, b) => a + b, 0)
+    });
+  };
+  const tapDie = sides => {
+    if (sel !== sides) {
+      setSel(sides);
+      return;
+    }
+    rollDice(sides, parsedCount());
+    closePanel();
+  };
+  const n = parsedCount();
+  const natural = result && result.n === 1 && result.sides === 20 ? result.total === 20 ? "Natural 20!" : result.total === 1 ? "Natural 1" : "" : "";
+  return /*#__PURE__*/React.createElement(React.Fragment, null, open && /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-10",
+    onClick: closePanel
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "fixed bottom-4 right-4 z-20 flex flex-col items-end gap-2"
+  }, open && sel && /*#__PURE__*/React.createElement("div", {
+    className: "w-64 rounded-xl border border-neutral-700 bg-neutral-900 p-3 shadow-2xl"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between mb-1.5"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-xs text-neutral-400"
+  }, "Number of dice"), /*#__PURE__*/React.createElement("span", {
+    className: "text-sm font-bold text-amber-300"
+  }, n, "d", sel)), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "range",
+    min: "1",
+    max: "10",
+    step: "1",
+    value: Math.min(n, 10),
+    "aria-label": "Number of dice",
+    onChange: e => setCount(parseInt(e.target.value, 10)),
+    className: "flex-1 w-0 min-w-0 accent-amber-500"
+  }), /*#__PURE__*/React.createElement("input", {
+    value: countText,
+    "aria-label": "Custom number of dice",
+    inputMode: "numeric",
+    onChange: e => setCountText(e.target.value.replace(/[^0-9]/g, "").slice(0, 3)),
+    onBlur: () => setCountText(String(parsedCount())),
+    className: "w-14 shrink-0 text-center text-sm bg-neutral-950 border border-neutral-700 rounded px-1 py-1 outline-none focus:border-amber-500"
+  })), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-neutral-600 mt-1.5"
+  }, "Slide for 1–10, or type up to ", MAX_DICE, ". Tap d", sel, " again to roll.")), open && /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-1.5 rounded-xl border border-neutral-700 bg-neutral-900 p-1.5 shadow-2xl"
+  }, DICE_SIDES.map(d => /*#__PURE__*/React.createElement("button", {
+    key: d,
+    onClick: () => tapDie(d),
+    "aria-label": sel === d ? `Roll ${n}d${d}` : `Select d${d}`,
+    className: `w-10 h-10 rounded-lg text-sm font-bold transition-colors ${sel === d ? "bg-amber-500 text-neutral-950" : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"}`
+  }, "d", d))), /*#__PURE__*/React.createElement("button", {
+    onClick: () => open ? closePanel() : setOpen(true),
+    "aria-label": "Dice roller",
+    title: "Dice roller",
+    className: `w-12 h-12 rounded-full flex items-center justify-center shadow-lg border transition-colors ${open ? "bg-neutral-800 border-amber-500 text-amber-300" : "bg-gradient-to-br from-amber-500 to-rose-600 border-transparent text-neutral-950"}`
+  }, /*#__PURE__*/React.createElement(IconD20, {
+    className: "w-6 h-6"
+  }))), result && /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-40 flex items-center justify-center bg-black/70 p-4",
+    onClick: () => setResult(null)
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-full max-w-xs rounded-xl border border-neutral-700 bg-neutral-900 p-5 shadow-2xl text-center",
+    onClick: e => e.stopPropagation(),
+    role: "dialog",
+    "aria-label": "Dice result"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-neutral-500 mb-1"
+  }, result.n, "d", result.sides), /*#__PURE__*/React.createElement("p", {
+    className: "text-6xl font-bold text-amber-300 leading-none",
+    "data-testid": "dice-total"
+  }, result.total), natural && /*#__PURE__*/React.createElement("p", {
+    className: "text-sm font-semibold text-amber-200 mt-2"
+  }, natural), result.n > 1 && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-neutral-400 mt-3 max-h-24 overflow-y-auto break-words"
+  }, result.rolls.join(" + ")), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2 mt-5"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => rollDice(result.sides, result.n),
+    className: "flex-1 text-sm font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded-lg py-2"
+  }, "Roll again"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setResult(null),
+    className: "flex-1 text-sm font-semibold bg-amber-500 hover:bg-amber-400 text-neutral-950 rounded-lg py-2"
+  }, "Close")))));
+}
 function InfoModal({
   onClose
 }) {
@@ -1867,6 +2013,27 @@ function InfoModal({
   }, /*#__PURE__*/React.createElement(IconX, {
     className: "w-4 h-4"
   }))), /*#__PURE__*/React.createElement("div", {
+    className: "mb-4"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs font-semibold text-neutral-400 mb-1.5"
+  }, "Help & FAQ"), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs font-semibold text-amber-300 mb-1"
+  }, "Quick start"), /*#__PURE__*/React.createElement("ol", {
+    className: "list-decimal pl-4 space-y-1 text-xs text-neutral-400 mb-3"
+  }, HELP_QUICK_START.map(t => /*#__PURE__*/React.createElement("li", {
+    key: t
+  }, t))), /*#__PURE__*/React.createElement("div", {
+    className: "divide-y divide-neutral-800 border-y border-neutral-800"
+  }, HELP_FAQ.map(([q, a]) => /*#__PURE__*/React.createElement("details", {
+    key: q,
+    className: "group py-1.5"
+  }, /*#__PURE__*/React.createElement("summary", {
+    className: "flex items-center justify-between gap-2 cursor-pointer list-none text-xs font-medium text-neutral-300 hover:text-neutral-100 [&::-webkit-details-marker]:hidden"
+  }, /*#__PURE__*/React.createElement("span", null, q), /*#__PURE__*/React.createElement(IconChevronDown, {
+    className: "w-3.5 h-3.5 shrink-0 text-neutral-500 transition-transform group-open:rotate-180"
+  })), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-neutral-400 mt-1.5 pr-5"
+  }, a))))), /*#__PURE__*/React.createElement("div", {
     className: "space-y-2"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-xs font-semibold text-neutral-400"
@@ -2793,8 +2960,8 @@ function CombatTracker() {
     Deadly: "bg-rose-900/40 text-rose-300 border-rose-700"
   };
   return /*#__PURE__*/React.createElement("div", {
-    className: "min-h-screen bg-neutral-950 text-neutral-100 p-4 sm:p-6"
-  }, /*#__PURE__*/React.createElement("div", {
+    className: "min-h-screen bg-neutral-950 text-neutral-100 p-4 sm:p-6 pb-24 sm:pb-24"
+  }, /*#__PURE__*/React.createElement(DiceRoller, null), /*#__PURE__*/React.createElement("div", {
     className: "max-w-2xl mx-auto"
   }, /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-3 items-center mb-1"
